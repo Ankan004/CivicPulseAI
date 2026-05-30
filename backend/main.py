@@ -1,12 +1,20 @@
 from fastapi import FastAPI
 
+from app.database.base import Base
+from app.database.session import engine
+
+from app.models.user import User
+
+
+Base.metadata.create_all(bind=engine)
+
 app = FastAPI(
-    title="CivicPulse AI",
-    version="1.0.0"
+    title="CivicPulse AI"
 )
+
 
 @app.get("/")
 def home():
     return {
-        "message": "CivicPulse AI Backend Running"
+        "message": "CivicPulse Backend Running"
     }
