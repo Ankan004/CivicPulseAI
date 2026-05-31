@@ -3,6 +3,7 @@ from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Float
 from sqlalchemy import DateTime
+from sqlalchemy import ForeignKey
 
 from datetime import datetime
 
@@ -33,4 +34,7 @@ class Complaint(Base):
         default=datetime.utcnow
     )
 
-    user_id = Column(Integer)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id")
+    )
