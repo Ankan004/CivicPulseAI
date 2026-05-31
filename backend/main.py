@@ -8,7 +8,7 @@ from app.models.complaint import Complaint
 
 from app.api.auth import router as auth_router
 from app.api.complaints import router as complaint_router
-
+from app.api.users import router as users_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -18,7 +18,7 @@ app = FastAPI(
 
 app.include_router(auth_router)
 app.include_router(complaint_router)
-
+app.include_router(users_router)
 
 @app.get("/")
 def home():
