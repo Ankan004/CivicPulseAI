@@ -33,6 +33,12 @@ export default function Navbar() {
       >
         My Complaints
       </Link>
+      <Link
+      href="/admin"
+      className="hover:text-gray-300"
+      >
+      Admin
+      </Link>
 
       <button
         onClick={logout}
