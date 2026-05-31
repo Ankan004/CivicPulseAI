@@ -39,6 +39,9 @@ export default function Navbar() {
       >
       Admin
       </Link>
+      <Link href="/map">
+  Complaint Map
+</Link>
 
       <button
         onClick={logout}

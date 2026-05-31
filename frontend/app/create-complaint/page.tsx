@@ -2,17 +2,37 @@
 
 import { useState } from "react";
 import axios from "axios";
+import dynamic from "next/dynamic";
+import Navbar from "../../components/Navbar";
+
+const LocationPicker = dynamic(
+  () =>
+    import(
+      "../../components/LocationPicker"
+    ),
+  {
+    ssr: false,
+  }
+);
 
 export default function CreateComplaintPage() {
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
+  const [description, setDescription] =
+    useState("");
+
+  const [category, setCategory] =
+    useState("");
+
+  const [latitude, setLatitude] =
+    useState("");
+
+  const [longitude, setLongitude] =
+    useState("");
 
   const submitComplaint = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token =
+        localStorage.getItem("token");
 
       await axios.post(
         "http://127.0.0.1:8000/complaints/",
@@ -20,8 +40,10 @@ export default function CreateComplaintPage() {
           title,
           description,
           category,
-          latitude: Number(latitude),
-          longitude: Number(longitude),
+          latitude:
+            Number(latitude),
+          longitude:
+            Number(longitude),
         },
         {
           headers: {
@@ -30,7 +52,9 @@ export default function CreateComplaintPage() {
         }
       );
 
-      alert("Complaint Created Successfully!");
+      alert(
+        "Complaint Created Successfully!"
+      );
 
       setTitle("");
       setDescription("");
@@ -39,59 +63,96 @@ export default function CreateComplaintPage() {
       setLongitude("");
     } catch (error) {
       console.error(error);
-      alert("Failed to create complaint");
+      alert(
+        "Failed to create complaint"
+      );
     }
   };
 
   return (
-    <main className="min-h-screen bg-white text-black p-10">
-      <h1 className="text-4xl font-bold mb-6">
-        Create Complaint
-      </h1>
+    <>
+      <Navbar />
 
-      <div className="max-w-xl space-y-4">
-        <input
-          className="w-full border p-3 rounded"
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
+      <main className="min-h-screen bg-white text-black p-10">
+        <h1 className="text-4xl font-bold mb-6">
+          Create Complaint
+        </h1>
 
-        <textarea
-          className="w-full border p-3 rounded"
-          placeholder="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
+        <div className="max-w-3xl space-y-4">
+          <input
+            className="w-full border p-3 rounded"
+            placeholder="Title"
+            value={title}
+            onChange={(e) =>
+              setTitle(
+                e.target.value
+              )
+            }
+          />
 
-        <input
-          className="w-full border p-3 rounded"
-          placeholder="Category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        />
+          <textarea
+            className="w-full border p-3 rounded"
+            placeholder="Description"
+            value={description}
+            onChange={(e) =>
+              setDescription(
+                e.target.value
+              )
+            }
+          />
 
-        <input
-          className="w-full border p-3 rounded"
-          placeholder="Latitude"
-          value={latitude}
-          onChange={(e) => setLatitude(e.target.value)}
-        />
+          <input
+            className="w-full border p-3 rounded"
+            placeholder="Category"
+            value={category}
+            onChange={(e) =>
+              setCategory(
+                e.target.value
+              )
+            }
+          />
 
-        <input
-          className="w-full border p-3 rounded"
-          placeholder="Longitude"
-          value={longitude}
-          onChange={(e) => setLongitude(e.target.value)}
-        />
+          <input
+            className="w-full border p-3 rounded"
+            placeholder="Latitude"
+            value={latitude}
+            readOnly
+          />
 
-        <button
-          onClick={submitComplaint}
-          className="bg-black text-white px-6 py-3 rounded"
-        >
-          Submit Complaint
-        </button>
-      </div>
-    </main>
+          <input
+            className="w-full border p-3 rounded"
+            placeholder="Longitude"
+            value={longitude}
+            readOnly
+          />
+
+          <h2 className="text-xl font-bold">
+            Search or Select Location
+          </h2>
+
+          <LocationPicker
+            onLocationSelect={(
+              lat,
+              lng
+            ) => {
+              setLatitude(
+                lat.toString()
+              );
+
+              setLongitude(
+                lng.toString()
+              );
+            }}
+          />
+
+          <button
+            onClick={submitComplaint}
+            className="bg-black text-white px-6 py-3 rounded"
+          >
+            Submit Complaint
+          </button>
+        </div>
+      </main>
+    </>
   );
 }
