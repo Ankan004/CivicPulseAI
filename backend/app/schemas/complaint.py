@@ -19,3 +19,14 @@ class ComplaintResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+from typing import Literal
+
+
+class ComplaintStatusUpdate(BaseModel):
+    status: Literal[
+        "pending",
+        "in_progress",
+        "resolved",
+        "rejected"
+    ]

@@ -66,3 +66,23 @@ def get_current_user(
         "email": user.email,
         "role": user.role
     }
+@router.patch("/make-admin/{user_id}")
+def make_admin(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+
+    user = db.query(User).filter(
+        User.id == user_id
+    ).first()
+
+    if not user:
+        return {"message": "User not found"}
+
+    user.role = "admin"
+
+    db.commit()
+
+    return {
+        "message": f"{user.name} is now admin"
+    }

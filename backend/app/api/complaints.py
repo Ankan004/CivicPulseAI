@@ -5,10 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.models.complaint import Complaint
 from app.models.user import User
+from app.core.admin import admin_required
 
 from app.schemas.complaint import (
     ComplaintCreate,
-    ComplaintResponse
+    ComplaintResponse,
+    ComplaintStatusUpdate
 )
 
 from app.database.dependencies import get_db
@@ -42,9 +44,7 @@ def create_complaint(
     )
 
     db.add(new_complaint)
-
     db.commit()
-
     db.refresh(new_complaint)
 
     return new_complaint
@@ -58,6 +58,8 @@ def get_complaints(
     db: Session = Depends(get_db)
 ):
     return db.query(Complaint).all()
+
+
 @router.get("/my-complaints")
 def my_complaints(
     db: Session = Depends(get_db),
@@ -69,3 +71,28 @@ def my_complaints(
     ).all()
 
     return complaints
+
+
+@router.patch("/{complaint_id}/status")
+def update_status(
+    complaint_id: int,
+    data: ComplaintStatusUpdate,
+    db: Session = Depends(get_db),
+    admin_user = Depends(admin_required)
+):
+
+    complaint = db.query(Complaint).filter(
+        Complaint.id == complaint_id
+    ).first()
+
+    if not complaint:
+        return {
+            "message": "Complaint not found"
+        }
+
+    complaint.status = data.status
+
+    db.commit()
+    db.refresh(complaint)
+
+    return complaint
