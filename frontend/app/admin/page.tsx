@@ -15,6 +15,8 @@ interface Complaint {
 
 export default function AdminPage() {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState(""); 
 
   useEffect(() => {
     fetchComplaints();
@@ -57,6 +59,17 @@ export default function AdminPage() {
       alert("Status update failed");
     }
   };
+  const filteredComplaints = complaints.filter((complaint) => {
+  const matchesFilter =
+    filter === "all" || complaint.status === filter;
+
+  const matchesSearch =
+    complaint.title
+      .toLowerCase()
+      .includes(search.toLowerCase());
+
+  return matchesFilter && matchesSearch;
+});
 
   return (
     <>
@@ -66,9 +79,33 @@ export default function AdminPage() {
         <h1 className="text-4xl font-bold mb-8">
           Admin Panel
         </h1>
+        <div className="flex gap-4 mb-6">
+  <input
+    type="text"
+    placeholder="Search complaints..."
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    className="border p-2 rounded w-64"
+  />
+
+  <select
+    value={filter}
+    onChange={(e) => setFilter(e.target.value)}
+    className="border p-2 rounded"
+  >
+    <option value="all">All</option>
+    <option value="pending">Pending</option>
+    <option value="in_progress">
+      In Progress
+    </option>
+    <option value="resolved">
+      Resolved
+    </option>
+  </select>
+</div>
 
         <div className="space-y-4">
-          {complaints.map((complaint) => (
+          {filteredComplaints.map((complaint) => (
             <div
               key={complaint.id}
               className="border rounded-lg p-5 shadow"
@@ -83,9 +120,20 @@ export default function AdminPage() {
                 Category: {complaint.category}
               </p>
 
-              <p>
-                Status: {complaint.status}
-              </p>
+              <p className="mt-2">
+  Status:
+  <span
+    className={`ml-2 px-2 py-1 rounded text-white ${
+      complaint.status === "pending"
+        ? "bg-yellow-500"
+        : complaint.status === "in_progress"
+        ? "bg-blue-500"
+        : "bg-green-500"
+    }`}
+  >
+    {complaint.status}
+  </span>
+</p>
 
               <div className="flex gap-2 mt-4">
                 <button
