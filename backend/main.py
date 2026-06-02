@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api.location import router as location_router
+from app.api.weather import router as weather_router
+from app.api.disaster import router as disaster_router
 
 from app.database.base import Base
 from app.database.session import engine
@@ -41,6 +43,8 @@ app.include_router(dashboard_router)
 app.include_router(map_router)
 app.include_router(upload_router)
 app.include_router(location_router)
+app.include_router(weather_router)
+app.include_router(disaster_router)
 
 
 @app.get("/")
