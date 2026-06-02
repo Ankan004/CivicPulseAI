@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from app.api.location import router as location_router
 
 from app.database.base import Base
 from app.database.session import engine
@@ -12,6 +14,8 @@ from app.api.complaints import router as complaint_router
 from app.api.users import router as users_router
 from app.api.dashboard import router as dashboard_router
 from app.api.map_dashboard import router as map_router
+from app.api.upload import router as upload_router
+from app.api.location import router as location_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -35,6 +39,8 @@ app.include_router(complaint_router)
 app.include_router(users_router)
 app.include_router(dashboard_router)
 app.include_router(map_router)
+app.include_router(upload_router)
+app.include_router(location_router)
 
 
 @app.get("/")
@@ -42,3 +48,8 @@ def home():
     return {
         "message": "CivicPulse Backend Running"
     }
+app.mount(
+    "/uploads",
+    StaticFiles(directory="uploads"),
+    name="uploads"
+)

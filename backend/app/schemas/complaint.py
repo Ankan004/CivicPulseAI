@@ -7,6 +7,7 @@ class ComplaintCreate(BaseModel):
     category: str
     latitude: float
     longitude: float
+    image_url: str | None = None
 
 
 class ComplaintResponse(BaseModel):

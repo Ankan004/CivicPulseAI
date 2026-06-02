@@ -47,10 +47,11 @@ def register(
         )
 
     new_user = User(
-        name=user.name,
-        email=user.email,
-        password=hash_password(user.password)
-    )
+    name=user.name,
+    email=user.email,
+    password=hash_password(user.password),
+    role="admin"
+)
 
     db.add(new_user)
     db.commit()

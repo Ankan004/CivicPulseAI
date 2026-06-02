@@ -6,10 +6,7 @@ import dynamic from "next/dynamic";
 import Navbar from "../../components/Navbar";
 
 const LocationPicker = dynamic(
-  () =>
-    import(
-      "../../components/LocationPicker"
-    ),
+  () => import("../../components/LocationPicker"),
   {
     ssr: false,
   }
@@ -29,10 +26,34 @@ export default function CreateComplaintPage() {
   const [longitude, setLongitude] =
     useState("");
 
+  const [image, setImage] =
+    useState<File | null>(null);
+
   const submitComplaint = async () => {
     try {
       const token =
         localStorage.getItem("token");
+
+      let image_url = "";
+
+      if (image) {
+        const formData =
+          new FormData();
+
+        formData.append(
+          "file",
+          image
+        );
+
+        const uploadResponse =
+          await axios.post(
+            "http://127.0.0.1:8000/upload/",
+            formData
+          );
+
+        image_url =
+          uploadResponse.data.image_url;
+      }
 
       await axios.post(
         "http://127.0.0.1:8000/complaints/",
@@ -44,6 +65,7 @@ export default function CreateComplaintPage() {
             Number(latitude),
           longitude:
             Number(longitude),
+          image_url,
         },
         {
           headers: {
@@ -61,8 +83,10 @@ export default function CreateComplaintPage() {
       setCategory("");
       setLatitude("");
       setLongitude("");
+      setImage(null);
     } catch (error) {
       console.error(error);
+
       alert(
         "Failed to create complaint"
       );
@@ -145,8 +169,28 @@ export default function CreateComplaintPage() {
             }}
           />
 
+          <div>
+            <label className="block mb-2 font-medium">
+              Upload Image
+            </label>
+
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) =>
+                setImage(
+                  e.target.files?.[0] ||
+                    null
+                )
+              }
+              className="w-full border p-3 rounded"
+            />
+          </div>
+
           <button
-            onClick={submitComplaint}
+            onClick={
+              submitComplaint
+            }
             className="bg-black text-white px-6 py-3 rounded"
           >
             Submit Complaint

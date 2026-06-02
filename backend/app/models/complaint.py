@@ -28,6 +28,7 @@ class Complaint(Base):
     latitude = Column(Float)
 
     longitude = Column(Float)
+    image_url = Column(String, nullable=True)
 
     created_at = Column(
         DateTime,

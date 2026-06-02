@@ -84,10 +84,10 @@ export default function LocationPicker({
 
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          value
-        )}&limit=5`
-      );
+  `http://127.0.0.1:8000/location/search?q=${encodeURIComponent(
+    value
+  )}`
+);
 
       const data = await response.json();
 
