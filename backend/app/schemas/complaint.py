@@ -5,8 +5,13 @@ class ComplaintCreate(BaseModel):
     title: str
     description: str
     category: str
+
+    severity: str = "medium"
+    priority: str = "medium"
+
     latitude: float
     longitude: float
+
     image_url: str | None = None
 
 
@@ -15,7 +20,10 @@ class ComplaintResponse(BaseModel):
     title: str
     description: str
     category: str
+
     severity: str
+    priority: str
+
     status: str
 
     class Config:

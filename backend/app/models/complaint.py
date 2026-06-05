@@ -22,6 +22,7 @@ class Complaint(Base):
     category = Column(String, nullable=False)
 
     severity = Column(String, default="medium")
+    priority = Column(String, default="medium")
 
     status = Column(String, default="pending")
 

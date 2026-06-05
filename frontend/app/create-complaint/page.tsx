@@ -20,6 +20,12 @@ export default function CreateComplaintPage() {
   const [category, setCategory] =
     useState("");
 
+  const [severity, setSeverity] =
+    useState("medium");
+
+  const [priority, setPriority] =
+    useState("medium");
+
   const [latitude, setLatitude] =
     useState("");
 
@@ -28,6 +34,42 @@ export default function CreateComplaintPage() {
 
   const [image, setImage] =
     useState<File | null>(null);
+
+  const analyzeWithAI = async () => {
+    try {
+      const response = await axios.post(
+        "http://127.0.0.1:8000/ai/classify",
+        {
+          text:
+            title +
+            " " +
+            description,
+        }
+      );
+
+      setCategory(
+        response.data.category
+      );
+
+      setSeverity(
+        response.data.severity
+      );
+
+      setPriority(
+        response.data.priority
+      );
+
+      alert(
+        "🤖 AI Analysis Complete!"
+      );
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        "AI Analysis Failed"
+      );
+    }
+  };
 
   const submitComplaint = async () => {
     try {
@@ -61,6 +103,8 @@ export default function CreateComplaintPage() {
           title,
           description,
           category,
+          severity,
+          priority,
           latitude:
             Number(latitude),
           longitude:
@@ -75,12 +119,14 @@ export default function CreateComplaintPage() {
       );
 
       alert(
-        "Complaint Created Successfully!"
+        "✅ Complaint Created Successfully!"
       );
 
       setTitle("");
       setDescription("");
       setCategory("");
+      setSeverity("medium");
+      setPriority("medium");
       setLatitude("");
       setLongitude("");
       setImage(null);
@@ -136,6 +182,42 @@ export default function CreateComplaintPage() {
             }
           />
 
+          {/* AI Analysis Card */}
+
+          <div className="bg-blue-50 border border-blue-200 p-4 rounded">
+            <h3 className="font-bold text-lg mb-3">
+              🤖 AI Analysis
+            </h3>
+
+            <div className="space-y-2">
+              <p>
+                <strong>
+                  Category:
+                </strong>{" "}
+                {category ||
+                  "Not analyzed yet"}
+              </p>
+
+              <p>
+                <strong>
+                  Severity:
+                </strong>{" "}
+                <span className="text-orange-600 font-semibold">
+                  {severity}
+                </span>
+              </p>
+
+              <p>
+                <strong>
+                  Priority:
+                </strong>{" "}
+                <span className="text-red-600 font-semibold">
+                  {priority}
+                </span>
+              </p>
+            </div>
+          </div>
+
           <input
             className="w-full border p-3 rounded"
             placeholder="Latitude"
@@ -187,14 +269,23 @@ export default function CreateComplaintPage() {
             />
           </div>
 
-          <button
-            onClick={
-              submitComplaint
-            }
-            className="bg-black text-white px-6 py-3 rounded"
-          >
-            Submit Complaint
-          </button>
+          <div className="flex gap-4">
+            <button
+              onClick={analyzeWithAI}
+              className="bg-blue-600 text-white px-6 py-3 rounded"
+            >
+              🤖 Analyze with AI
+            </button>
+
+            <button
+              onClick={
+                submitComplaint
+              }
+              className="bg-black text-white px-6 py-3 rounded"
+            >
+              Submit Complaint
+            </button>
+          </div>
         </div>
       </main>
     </>

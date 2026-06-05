@@ -4,6 +4,10 @@ from fastapi.staticfiles import StaticFiles
 from app.api.location import router as location_router
 from app.api.weather import router as weather_router
 from app.api.disaster import router as disaster_router
+from app.api.ai import router as ai_router
+from app.api.analytics import (
+    router as analytics_router
+)
 
 from app.database.base import Base
 from app.database.session import engine
@@ -45,6 +49,10 @@ app.include_router(upload_router)
 app.include_router(location_router)
 app.include_router(weather_router)
 app.include_router(disaster_router)
+app.include_router(ai_router)
+app.include_router(
+    analytics_router
+)
 
 
 @app.get("/")

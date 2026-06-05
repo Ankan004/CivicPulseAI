@@ -35,13 +35,20 @@ def create_complaint(
 ):
 
     new_complaint = Complaint(
-        title=complaint.title,
-        description=complaint.description,
-        category=complaint.category,
-        latitude=complaint.latitude,
-        longitude=complaint.longitude,
-        user_id=current_user.id
-    )
+    title=complaint.title,
+    description=complaint.description,
+    category=complaint.category,
+
+    severity=complaint.severity,
+    priority=complaint.priority,
+
+    latitude=complaint.latitude,
+    longitude=complaint.longitude,
+
+    image_url=complaint.image_url,
+
+    user_id=current_user.id
+)
 
     db.add(new_complaint)
     db.commit()
