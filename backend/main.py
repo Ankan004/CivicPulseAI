@@ -8,6 +8,7 @@ from app.api.ai import router as ai_router
 from app.api.analytics import (
     router as analytics_router
 )
+from app.api.risk_map import router as risk_map_router
 
 from app.database.base import Base
 from app.database.session import engine
@@ -53,6 +54,7 @@ app.include_router(ai_router)
 app.include_router(
     analytics_router
 )
+app.include_router(risk_map_router)
 
 
 @app.get("/")
