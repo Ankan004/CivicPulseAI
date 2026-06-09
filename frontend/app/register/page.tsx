@@ -25,7 +25,7 @@ setSuccess("");
 try {
 
   const response = await axios.post(
-    "https://civicpulseai-production.up.railway.app//auth/register",
+    "https://civicpulseai-production.up.railway.app/auth/register",
     {
       name,
       email,
