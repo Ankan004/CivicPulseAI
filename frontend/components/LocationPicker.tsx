@@ -134,7 +134,7 @@ useEffect(() => {
 
     const response =
       await fetch(
-        `https://civicpulseai-production.up.railway.app//location/search?q=${encodeURIComponent(value)}`
+        `https://civicpulseai-production.up.railway.app/location/search?q=${encodeURIComponent(value)}`
       );
 
     if (!response.ok) {

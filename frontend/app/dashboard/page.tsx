@@ -41,7 +41,7 @@ try {
 
   const response =
     await axios.get(
-      "https://civicpulseai-production.up.railway.app//dashboard/stats"
+      "https://civicpulseai-production.up.railway.app/dashboard/stats"
     );
 
   setStats(response.data);

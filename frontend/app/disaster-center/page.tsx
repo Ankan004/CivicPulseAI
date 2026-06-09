@@ -33,12 +33,12 @@ export default function DisasterCenter() {
     try {
       const weatherResponse =
         await axios.get(
-          `https://civicpulseai-production.up.railway.app//weather/current?lat=${latitude}&lon=${longitude}`
+          `https://civicpulseai-production.up.railway.app/weather/current?lat=${latitude}&lon=${longitude}`
         );
 
       const riskResponse =
         await axios.get(
-          `https://civicpulseai-production.up.railway.app//disaster/risk?lat=${latitude}&lon=${longitude}`
+          `https://civicpulseai-production.up.railway.app/disaster/risk?lat=${latitude}&lon=${longitude}`
         );
 
       setWeather(

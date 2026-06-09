@@ -25,7 +25,7 @@ export default function ComplaintDetailsPage() {
 
       const response =
         await axios.get(
-          `https://civicpulseai-production.up.railway.app//complaints/${params.id}`
+          `https://civicpulseai-production.up.railway.app/complaints/${params.id}`
         );
 
       setComplaint(

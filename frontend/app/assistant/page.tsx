@@ -29,7 +29,7 @@ export default function AssistantPage() {
 
         const response =
           await axios.get(
-            "https://civicpulseai-production.up.railway.app//assistant/summary"
+            "https://civicpulseai-production.up.railway.app/assistant/summary"
           );
 
         setData(
@@ -53,7 +53,7 @@ export default function AssistantPage() {
 
     const response =
       await axios.post(
-        "https://civicpulseai-production.up.railway.app//assistant/ask",
+        "https://civicpulseai-production.up.railway.app/assistant/ask",
         {
           question
         }

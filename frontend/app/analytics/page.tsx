@@ -37,7 +37,7 @@ export default function AnalyticsPage() {
       try {
         const response =
           await axios.get(
-            "https://civicpulseai-production.up.railway.app//analytics/summary"
+            "https://civicpulseai-production.up.railway.app/analytics/summary"
           );
 
         setData(

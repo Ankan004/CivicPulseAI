@@ -65,7 +65,7 @@ export default function ComplaintMap() {
   const fetchComplaints = async () => {
     try {
       const response = await axios.get(
-        "https://civicpulseai-production.up.railway.app//map/complaints"
+        "https://civicpulseai-production.up.railway.app/map/complaints"
       );
 
       setComplaints(response.data);

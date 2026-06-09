@@ -51,7 +51,7 @@ try {
 
   const response =
     await axios.get(
-      "https://civicpulseai-production.up.railway.app//complaints/my-complaints",
+      "https://civicpulseai-production.up.railway.app/complaints/my-complaints",
       {
         headers: {
           Authorization:

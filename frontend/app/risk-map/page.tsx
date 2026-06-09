@@ -65,7 +65,7 @@ export default function RiskMapPage() {
 
       const riskResponse =
         await axios.get(
-          "https://civicpulseai-production.up.railway.app//risk-map/"
+          "https://civicpulseai-production.up.railway.app/risk-map/"
         );
 
       setData(
@@ -74,7 +74,7 @@ export default function RiskMapPage() {
 
       const hotspotResponse =
         await axios.get(
-          "https://civicpulseai-production.up.railway.app//hotspots/"
+          "https://civicpulseai-production.up.railway.app/hotspots/"
         );
 
       setHotspots(

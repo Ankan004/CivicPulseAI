@@ -52,7 +52,7 @@ const fetchRecommendation =
 
     const response =
       await axios.post(
-        "https://civicpulseai-production.up.railway.app//assistant/ask",
+        "https://civicpulseai-production.up.railway.app/assistant/ask",
         {
           question:
             "What should be fixed first?"
@@ -80,7 +80,7 @@ try {
 
   const response =
     await axios.get(
-      "https://civicpulseai-production.up.railway.app//complaints/"
+      "https://civicpulseai-production.up.railway.app/complaints/"
     );
 
   setComplaints(
@@ -186,7 +186,7 @@ const updateStatus = async (
       );
 
     await axios.patch(
-      `https://civicpulseai-production.up.railway.app//complaints/${complaintId}/status`,
+      `https://civicpulseai-production.up.railway.app/complaints/${complaintId}/status`,
       {
         status,
       },
@@ -212,7 +212,7 @@ const updateStatus = async (
 const exportCSV = () => {
 
   window.open(
-    "https://civicpulseai-production.up.railway.app//complaints/export/csv",
+    "https://civicpulseai-production.up.railway.app/complaints/export/csv",
     "_blank"
   );
 
@@ -223,7 +223,7 @@ const fetchHotspot = async () => {
 
     const response =
       await axios.post(
-        "https://civicpulseai-production.up.railway.app//assistant/ask",
+        "https://civicpulseai-production.up.railway.app/assistant/ask",
         {
           question:
             "What is the highest risk hotspot?"
