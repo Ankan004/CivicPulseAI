@@ -134,7 +134,7 @@ useEffect(() => {
 
     const response =
       await fetch(
-        `http://127.0.0.1:8000/location/search?q=${encodeURIComponent(value)}`
+        `https://civicpulseai-production.up.railway.app//location/search?q=${encodeURIComponent(value)}`
       );
 
     if (!response.ok) {

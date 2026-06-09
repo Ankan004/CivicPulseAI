@@ -50,7 +50,7 @@ const [consensus, setConsensus] =
   const analyzeWithAI = async () => {
     try {
       const response = await axios.post(
-  "http://127.0.0.1:8000/ai/classify",
+  "https://civicpulseai-production.up.railway.app//ai/classify",
   {
     title,
     description,
@@ -105,7 +105,7 @@ const [consensus, setConsensus] =
 
     const response =
       await axios.post(
-        "http://127.0.0.1:8000/image-ai/analyze",
+        "https://civicpulseai-production.up.railway.app//image-ai/analyze",
         formData
       );
     console.log(response.data);
@@ -179,7 +179,7 @@ ${response.data.confidence}%`
 
         const uploadResponse =
           await axios.post(
-            "http://127.0.0.1:8000/upload/",
+            "https://civicpulseai-production.up.railway.app//upload/",
             formData
           );
 
@@ -189,7 +189,7 @@ ${response.data.confidence}%`
 
       const response =
   await axios.post(
-    "http://127.0.0.1:8000/complaints/",
+    "https://civicpulseai-production.up.railway.app//complaints/",
     {
       title,
       description,

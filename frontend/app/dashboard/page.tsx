@@ -41,7 +41,7 @@ try {
 
   const response =
     await axios.get(
-      "http://127.0.0.1:8000/dashboard/stats"
+      "https://civicpulseai-production.up.railway.app//dashboard/stats"
     );
 
   setStats(response.data);

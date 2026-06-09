@@ -25,7 +25,7 @@ export default function ComplaintDetailsPage() {
 
       const response =
         await axios.get(
-          `http://127.0.0.1:8000/complaints/${params.id}`
+          `https://civicpulseai-production.up.railway.app//complaints/${params.id}`
         );
 
       setComplaint(

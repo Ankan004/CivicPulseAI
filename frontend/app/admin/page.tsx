@@ -52,7 +52,7 @@ const fetchRecommendation =
 
     const response =
       await axios.post(
-        "http://127.0.0.1:8000/assistant/ask",
+        "https://civicpulseai-production.up.railway.app//assistant/ask",
         {
           question:
             "What should be fixed first?"
@@ -80,7 +80,7 @@ try {
 
   const response =
     await axios.get(
-      "http://127.0.0.1:8000/complaints/"
+      "https://civicpulseai-production.up.railway.app//complaints/"
     );
 
   setComplaints(
@@ -186,7 +186,7 @@ const updateStatus = async (
       );
 
     await axios.patch(
-      `http://127.0.0.1:8000/complaints/${complaintId}/status`,
+      `https://civicpulseai-production.up.railway.app//complaints/${complaintId}/status`,
       {
         status,
       },
@@ -212,7 +212,7 @@ const updateStatus = async (
 const exportCSV = () => {
 
   window.open(
-    "http://127.0.0.1:8000/complaints/export/csv",
+    "https://civicpulseai-production.up.railway.app//complaints/export/csv",
     "_blank"
   );
 
@@ -223,7 +223,7 @@ const fetchHotspot = async () => {
 
     const response =
       await axios.post(
-        "http://127.0.0.1:8000/assistant/ask",
+        "https://civicpulseai-production.up.railway.app//assistant/ask",
         {
           question:
             "What is the highest risk hotspot?"

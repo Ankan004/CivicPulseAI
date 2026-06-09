@@ -23,5 +23,5 @@ async def upload_image(
 
     return {
         "image_url":
-        f"http://127.0.0.1:8000/{path}"
+        f"https://civicpulseai-production.up.railway.app//{path}"
     }
