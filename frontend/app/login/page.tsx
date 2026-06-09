@@ -22,7 +22,7 @@ setError("");
 try {
 
   const response = await axios.post(
-    "https://civicpulseai-production.up.railway.app//auth/login",
+    "https://civicpulseai-production.up.railway.app/auth/login",
     {
       email,
       password,
