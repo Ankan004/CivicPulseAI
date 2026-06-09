@@ -8,7 +8,22 @@ from app.api.ai import router as ai_router
 from app.api.analytics import (
     router as analytics_router
 )
+from app.api.assistant import (
+    router as assistant_router
+)
+from app.api.image_ai import (
+    router as image_ai_router
+)
 from app.api.risk_map import router as risk_map_router
+from app.api.admin_dashboard import (
+    router as admin_dashboard_router
+)
+from app.api.hotspots import (
+    router as hotspot_router
+)
+from app.api.vision import (
+    router as vision_router
+)
 
 from app.database.base import Base
 from app.database.session import engine
@@ -55,6 +70,21 @@ app.include_router(
     analytics_router
 )
 app.include_router(risk_map_router)
+app.include_router(
+    assistant_router
+)
+app.include_router(
+    image_ai_router
+)
+app.include_router(
+    admin_dashboard_router
+)
+app.include_router(
+    hotspot_router
+)
+app.include_router(
+    vision_router
+)
 
 
 @app.get("/")

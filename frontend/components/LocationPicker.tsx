@@ -6,7 +6,7 @@ import {
   Marker,
   useMapEvents,
 } from "react-leaflet";
-import { useState } from "react";
+import { useEffect,useState } from "react";
 import L from "leaflet";
 
 import "leaflet/dist/leaflet.css";
@@ -60,131 +60,251 @@ function LocationMarker({
 export default function LocationPicker({
   onLocationSelect,
 }: Props) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] =
+  useState("");
 
-  const [suggestions, setSuggestions] =
-    useState<any[]>([]);
+const [debouncedSearch,
+  setDebouncedSearch] =
+  useState("");
 
-  const [center, setCenter] = useState<
-    [number, number]
-  >([23.2323, 87.8615]);
+const [suggestions, setSuggestions] =
+  useState<any[]>([]);
 
-  const [selectedPosition, setSelectedPosition] =
-    useState<[number, number] | null>(null);
+const [center, setCenter] =
+  useState<[number, number]>(
+    [23.2323, 87.8615]
+  );
+
+const [selectedPosition,
+  setSelectedPosition] =
+  useState<[number, number] | null>(
+    null
+  );
+  
+
+useEffect(() => {
+
+  const timer =
+    setTimeout(() => {
+
+      setDebouncedSearch(
+        search
+      );
+
+    }, 500);
+
+  return () =>
+    clearTimeout(timer);
+
+}, [search]);
+
+useEffect(() => {
+
+  if (
+    debouncedSearch.length >= 3
+  ) {
+
+    handleSearch(
+      debouncedSearch
+    );
+
+  } else {
+
+    setSuggestions([]);
+
+  }
+
+}, [debouncedSearch]);
+
+
 
   const handleSearch = async (
-    value: string
-  ) => {
-    setSearch(value);
+  value: string
+) => {
 
-    if (value.length < 3) {
-      setSuggestions([]);
-      return;
+  if (value.length < 3) {
+
+    setSuggestions([]);
+
+    return;
+
+  }
+
+  try {
+
+    const response =
+      await fetch(
+        `http://127.0.0.1:8000/location/search?q=${encodeURIComponent(value)}`
+      );
+
+    if (!response.ok) {
+
+      throw new Error(
+        "Location search failed"
+      );
+
     }
 
-    try {
-      const response = await fetch(
-  `http://127.0.0.1:8000/location/search?q=${encodeURIComponent(
-    value
-  )}`
-);
+    const data =
+      await response.json();
 
-      const data = await response.json();
+    setSuggestions(data);
 
-      setSuggestions(data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
+  } catch (error) {
 
+    console.error(
+      "Location Search Error:",
+      error
+    );
+
+    setSuggestions([]);
+
+  }
+
+};
+
+    
   return (
-    <div>
-      <div className="relative mb-4">
-        <input
-          type="text"
-          placeholder="Search location..."
-          value={search}
-          onChange={(e) =>
-            handleSearch(e.target.value)
-          }
-          className="w-full border p-3 rounded"
-        />
+  <div>
 
-        {suggestions.length > 0 && (
-          <div className="absolute bg-white border rounded w-full max-h-60 overflow-y-auto z-[9999] shadow-lg">
-            {suggestions.map((item) => (
-              <div
-                key={item.place_id}
-                className="p-3 cursor-pointer hover:bg-gray-100"
-                onClick={() => {
-                  const lat = parseFloat(
-                    item.lat
-                  );
+    <div className="relative mb-4">
 
-                  const lng = parseFloat(
-                    item.lon
-                  );
+      <input
+        type="text"
+        placeholder="Search location..."
+        value={search}
+        onChange={(e) =>
+  setSearch(
+    e.target.value
+  )
+}
+        className="
+        w-full
+        bg-slate-900
+        text-white
+        border
+        border-slate-700
+        p-3
+        rounded-xl
+        placeholder:text-slate-400
+        "
+      />
 
-                  setCenter([lat, lng]);
+      {suggestions.length > 0 && (
 
-                  setSelectedPosition([
-                    lat,
-                    lng,
-                  ]);
+        <div
+          className="
+          absolute
+          bg-slate-900
+          border
+          border-slate-700
+          rounded-xl
+          w-full
+          max-h-60
+          overflow-y-auto
+          z-[9999]
+          shadow-2xl
+          "
+        >
 
-                  onLocationSelect(
-                    lat,
-                    lng
-                  );
+          {suggestions.map((item) => (
 
-                  setSearch(
-                    item.display_name
-                  );
+            <div
+              key={item.place_id}
+              className="
+              p-3
+              cursor-pointer
+              text-white
+              hover:bg-slate-800
+              transition
+              border-b
+              border-slate-800
+              "
+              onClick={() => {
 
-                  setSuggestions([]);
-                }}
-              >
-                {item.display_name}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                const lat = parseFloat(
+                  item.lat
+                );
 
-      <MapContainer
-        key={`${center[0]}-${center[1]}`}
-        center={center}
-        zoom={15}
-        style={{
-          height: "450px",
-          width: "100%",
-        }}
-      >
-        <TileLayer
-          attribution="&copy; OpenStreetMap contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+                const lng = parseFloat(
+                  item.lon
+                );
 
-        <LocationMarker
-          selectedPosition={
-            selectedPosition
-          }
-          onLocationSelect={(
+                setCenter([
+                  lat,
+                  lng,
+                ]);
+
+                setSelectedPosition([
+                  lat,
+                  lng,
+                ]);
+
+                onLocationSelect(
+                  lat,
+                  lng
+                );
+
+                setSearch(
+                  item.display_name
+                );
+
+                setSuggestions([]);
+
+              }}
+            >
+
+              {item.display_name}
+
+            </div>
+
+          ))}
+
+        </div>
+
+      )}
+
+    </div>
+
+    <MapContainer
+      key={`${center[0]}-${center[1]}`}
+      center={center}
+      zoom={15}
+      style={{
+        height: "450px",
+        width: "100%",
+      }}
+    >
+
+      <TileLayer
+        attribution="&copy; OpenStreetMap contributors"
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+
+      <LocationMarker
+        selectedPosition={
+          selectedPosition
+        }
+        onLocationSelect={(
+          lat,
+          lng
+        ) => {
+
+          setSelectedPosition([
+            lat,
+            lng,
+          ]);
+
+          onLocationSelect(
             lat,
             lng
-          ) => {
-            setSelectedPosition([
-              lat,
-              lng,
-            ]);
+          );
 
-            onLocationSelect(
-              lat,
-              lng
-            );
-          }}
-        />
-      </MapContainer>
-    </div>
-  );
+        }}
+      />
+
+    </MapContainer>
+
+  </div>
+);
 }

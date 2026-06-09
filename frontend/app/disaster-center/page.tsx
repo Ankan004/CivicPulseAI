@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import dynamic from "next/dynamic";
+import Navbar from "../../components/Navbar";
 
 const LocationPicker = dynamic(
   () => import("../../components/LocationPicker"),
@@ -61,10 +62,22 @@ export default function DisasterCenter() {
   }
 
   return (
-    <main className="p-10 bg-gray-50 min-h-screen">
-      <h1 className="text-4xl font-bold mb-8">
-        🌍 Disaster Center
-      </h1>
+  <>
+    <Navbar />
+
+    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white pt-28 px-10 pb-10">
+      <div className="mb-10">
+
+  <h1 className="text-5xl font-bold mb-3">
+    🌍 CivicPulse Disaster Center
+  </h1>
+
+  <p className="text-slate-400">
+    AI-powered disaster monitoring,
+    weather intelligence and civic risk analysis.
+  </p>
+
+</div>
 
       {/* Location Selector */}
 
@@ -89,7 +102,15 @@ export default function DisasterCenter() {
         />
       </div>
 
-      <div className="bg-white rounded shadow p-4 mb-6">
+      <div className="
+bg-white/5
+backdrop-blur-xl
+border border-white/10
+rounded-2xl
+p-6
+shadow-xl
+mb-8
+">
         <p>
           📍 Location:
           <strong>
@@ -117,7 +138,14 @@ export default function DisasterCenter() {
         Weather Intelligence
       </h2>
 
-      <div className="grid md:grid-cols-4 gap-6 mb-10">
+      <div className="
+bg-white/5
+backdrop-blur-xl
+border border-white/10
+rounded-2xl
+p-6
+shadow-xl
+">
         <WeatherCard
           title="🌡 Temperature"
           value={`${weather.current.temp_c}°C`}
@@ -145,7 +173,14 @@ export default function DisasterCenter() {
         Disaster Risk Prediction
       </h2>
 
-      <div className="grid md:grid-cols-3 gap-6 mb-10">
+      <div className="
+bg-white/5
+backdrop-blur-xl
+border border-white/10
+rounded-2xl
+p-6
+shadow-xl
+">
         <RiskCard
           title="🌊 Flood Risk"
           value={
@@ -170,9 +205,17 @@ export default function DisasterCenter() {
 
       {/* Civic Intelligence */}
 
-      <div className="bg-white rounded shadow p-6 mb-10">
+      <div className="
+bg-white/5
+backdrop-blur-xl
+border border-white/10
+rounded-2xl
+p-6
+shadow-xl
+mb-10
+">
         <h2 className="text-2xl font-bold mb-4">
-          Civic Intelligence
+          📊 Nearby Civic Issues
         </h2>
 
         <p className="mb-2">
@@ -190,67 +233,118 @@ export default function DisasterCenter() {
           {risk.water_complaints ??
             0}
         </p>
+        <p>
+          🛣 Road Complaints:
+          {" "}
+          {risk.road_complaints ?? 0}
+        </p>
       </div>
 
-      {/* Risk Analysis */}
+      <div className="
+bg-white/5
+backdrop-blur-xl
+border border-white/10
+rounded-2xl
+p-6
+shadow-xl
+mb-10
+">
 
-      <div className="bg-white rounded shadow p-6 mb-10">
-        <h2 className="text-2xl font-bold mb-4">
-          🧠 Risk Analysis
-        </h2>
+  <h2 className="text-xl font-bold mb-4">
+    🤖 AI Explanation
+  </h2>
 
-        <div className="space-y-2">
-          <p>
-            🌡 Temperature:
-            {" "}
-            {
-              risk.temperature
-            }
-            °C
-          </p>
+  {(risk?.heatwave_risk ?? 0) >= 70 && (
+    <div className="mb-4">
 
-          <p>
-            💧 Humidity:
-            {" "}
-            {
-              risk.humidity
-            }
-            %
-          </p>
+      <p className="font-semibold text-red-600">
+        🔥 Heatwave Risk is High
+      </p>
 
-          <p>
-            🌬 Wind Speed:
-            {" "}
-            {
-              risk.wind_speed
-            }
-            {" "}
-            km/h
-          </p>
+      <ul className="list-disc ml-6 mt-2">
 
-          <p>
-            🚰 Drainage
-            Complaints:
-            {" "}
-            {
-              risk.drainage_complaints
-            }
-          </p>
+        <li>
+          Temperature is
+          {" "}
+          {weather?.current?.temp_c ?? 0}°C
+        </li>
 
-          <p>
-            💧 Water
-            Complaints:
-            {" "}
-            {
-              risk.water_complaints
-            }
-          </p>
-        </div>
-      </div>
+        {(weather?.current?.temp_c ?? 0) > 35 && (
+  <li>
+    Temperature exceeds safe comfort levels
+  </li>
+)}
+
+        <li>
+          Risk of heat stress increases
+        </li>
+
+      </ul>
+
+    </div>
+  )}
+  <div className="mb-4">
+
+  <p className="font-semibold text-green-600">
+    🌊 Flood Risk Analysis
+  </p>
+
+  <ul className="list-disc ml-6 mt-2"></ul>
+  </div>
+
+  
+
+  <ul className="list-disc ml-6 mt-2">
+    
+    <li>
+      Nearby drainage complaints:
+      {" "}
+      {risk?.drainage_complaints ?? 0}
+    </li>
+
+    <li>
+      Nearby water complaints:
+      {" "}
+      {risk?.water_complaints ?? 0}
+    </li>
+
+    <li>
+      Nearby road complaints:
+      {" "}
+      {risk?.road_complaints ?? 0}
+    </li>
+
+    <li>
+      Current humidity:
+      {" "}
+      {weather?.current?.humidity ?? 0}
+      %
+    </li>
+
+    <li>
+      Calculated flood risk:
+      {" "}
+      {risk?.flood_risk ?? 0}
+      %
+    </li>
+
+  </ul>
+
+</div>
+
+
 
       {/* AI Alerts */}
 
-      <div className="bg-white rounded shadow p-6 mb-10">
+      <div className="
+bg-white/5
+backdrop-blur-xl
+border border-white/10
+rounded-2xl
+p-6
+shadow-xl
+mb-10
+">
         <h2 className="text-2xl font-bold mb-4">
           ⚠ AI Alerts
         </h2>
@@ -305,7 +399,14 @@ export default function DisasterCenter() {
 
       {/* Government Recommendations */}
 
-      <div className="bg-white rounded shadow p-6">
+      <div className="
+bg-white/5
+backdrop-blur-xl
+border border-white/10
+rounded-2xl
+p-6
+shadow-xl
+">
         <h2 className="text-2xl font-bold mb-4">
           🏛 Government
           Recommendations
@@ -374,6 +475,7 @@ export default function DisasterCenter() {
         )}
       </div>
     </main>
+    </>
   );
 }
 
@@ -384,16 +486,42 @@ function WeatherCard({
   title: string;
   value: string;
 }) {
+
   return (
-    <div className="bg-white rounded shadow p-6">
-      <h3 className="font-semibold mb-2">
+
+    <div
+      className="
+      bg-white/5
+      backdrop-blur-xl
+      border border-white/10
+      rounded-2xl
+      p-6
+      shadow-xl
+      "
+    >
+
+      <h3
+        className="
+        font-semibold
+        mb-3
+        text-slate-300
+        "
+      >
         {title}
       </h3>
 
-      <p className="text-3xl font-bold">
+      <p
+        className="
+        text-4xl
+        font-bold
+        text-white
+        "
+      >
         {value}
       </p>
+
     </div>
+
   );
 }
 
@@ -404,30 +532,54 @@ function RiskCard({
   title: string;
   value: number;
 }) {
+
   let color =
-    "text-green-600";
+    "text-green-400";
 
   if (value > 70) {
+
     color =
-      "text-red-600";
+      "text-red-400";
+
   } else if (
     value > 40
   ) {
+
     color =
-      "text-yellow-600";
+      "text-yellow-400";
+
   }
 
   return (
-    <div className="bg-white rounded shadow p-6">
-      <h3 className="font-semibold mb-2">
+
+    <div
+      className="
+      bg-white/5
+      backdrop-blur-xl
+      border border-white/10
+      rounded-2xl
+      p-6
+      shadow-xl
+      "
+    >
+
+      <h3
+        className="
+        font-semibold
+        mb-3
+        text-slate-300
+        "
+      >
         {title}
       </h3>
 
       <p
-        className={`text-4xl font-bold ${color}`}
+        className={`text-5xl font-bold ${color}`}
       >
         {value}%
       </p>
+
     </div>
+
   );
 }

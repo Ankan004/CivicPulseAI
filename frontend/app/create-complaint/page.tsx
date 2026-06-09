@@ -34,18 +34,28 @@ export default function CreateComplaintPage() {
 
   const [image, setImage] =
     useState<File | null>(null);
+  const [imageAnalysis, setImageAnalysis] =
+  useState<any>(null);
+  const [confidence,
+setConfidence] =
+  useState<number | null>(
+    null
+  );
 
+const [finalCategory, setFinalCategory] =
+  useState("");
+
+const [consensus, setConsensus] =
+  useState("");
   const analyzeWithAI = async () => {
     try {
       const response = await axios.post(
-        "http://127.0.0.1:8000/ai/classify",
-        {
-          text:
-            title +
-            " " +
-            description,
-        }
-      );
+  "http://127.0.0.1:8000/ai/classify",
+  {
+    title,
+    description,
+  }
+);
 
       setCategory(
         response.data.category
@@ -58,6 +68,10 @@ export default function CreateComplaintPage() {
       setPriority(
         response.data.priority
       );
+      setConfidence(
+  response.data
+    .category_confidence
+);
 
       alert(
         "🤖 AI Analysis Complete!"
@@ -70,6 +84,82 @@ export default function CreateComplaintPage() {
       );
     }
   };
+  const analyzeImage = async () => {
+
+  if (!image) {
+    alert(
+      "Please select an image first"
+    );
+    return;
+  }
+
+  try {
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      "file",
+      image
+    );
+
+    const response =
+      await axios.post(
+        "http://127.0.0.1:8000/image-ai/analyze",
+        formData
+      );
+    console.log(response.data);
+    setImageAnalysis(
+  response.data
+);
+
+setCategory(
+  response.data.category
+);
+
+if (
+  category &&
+  category.toLowerCase() ===
+  response.data.category.toLowerCase()
+) {
+
+  setConsensus(
+    "🟢 High Confidence Match"
+  );
+
+} else {
+
+  setConsensus(
+    "🟡 Manual Review Recommended"
+  );
+}
+
+setFinalCategory(
+  response.data.category
+);
+
+    alert(
+      `📷 AI Image Analysis
+
+Detected:
+${response.data.label}
+
+Category:
+${response.data.category}
+
+Confidence:
+${response.data.confidence}%`
+    );
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "Image Analysis Failed"
+    );
+  }
+};
 
   const submitComplaint = async () => {
     try {
@@ -97,30 +187,53 @@ export default function CreateComplaintPage() {
           uploadResponse.data.image_url;
       }
 
-      await axios.post(
-        "http://127.0.0.1:8000/complaints/",
-        {
-          title,
-          description,
-          category,
-          severity,
-          priority,
-          latitude:
-            Number(latitude),
-          longitude:
-            Number(longitude),
-          image_url,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response =
+  await axios.post(
+    "http://127.0.0.1:8000/complaints/",
+    {
+      title,
+      description,
+      category,
+      latitude:
+        Number(latitude),
+      longitude:
+        Number(longitude),
+      image_url,
+    },
+    {
+      headers: {
+        Authorization:
+          `Bearer ${token}`,
+      },
+    }
+  );
 
-      alert(
-        "✅ Complaint Created Successfully!"
-      );
+if (
+  response.data.message ===
+  "Similar complaint already exists"
+) {
+  alert(
+`⚠ Duplicate Complaint Found
+
+Complaint ID:
+${response.data.existing_complaint_id}
+
+Title:
+${response.data.existing_title}
+
+Similarity:
+${response.data.similarity_score}%
+
+Status:
+${response.data.status}`
+);
+
+  return;
+}
+
+alert(
+  "✅ Complaint Created Successfully!"
+);
 
       setTitle("");
       setDescription("");
@@ -143,14 +256,43 @@ export default function CreateComplaintPage() {
     <>
       <Navbar />
 
-      <main className="min-h-screen bg-white text-black p-10">
-        <h1 className="text-4xl font-bold mb-6">
-          Create Complaint
-        </h1>
+      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white p-10">
+        <div className="mb-10">
 
-        <div className="max-w-3xl space-y-4">
+  <h1 className="text-5xl font-bold mb-3">
+    📝 Report Civic Issue
+  </h1>
+
+  <p className="text-slate-400">
+    Submit complaints and let AI assist
+    with categorization, severity analysis
+    and risk assessment.
+  </p>
+
+</div>
+
+        <div
+  className="
+  max-w-6xl mx-auto
+  bg-white/5
+  backdrop-blur-xl
+  border border-white/10
+  rounded-3xl
+  p-8
+  shadow-2xl
+  space-y-6
+"
+>
           <input
-            className="w-full border p-3 rounded"
+            className="
+w-full
+bg-white/5
+border border-white/10
+rounded-xl
+p-4
+text-white
+placeholder:text-slate-400
+"
             placeholder="Title"
             value={title}
             onChange={(e) =>
@@ -161,7 +303,15 @@ export default function CreateComplaintPage() {
           />
 
           <textarea
-            className="w-full border p-3 rounded"
+            className="
+w-full
+bg-white/5
+border border-white/10
+rounded-xl
+p-4
+text-white
+placeholder:text-slate-400
+"
             placeholder="Description"
             value={description}
             onChange={(e) =>
@@ -172,9 +322,9 @@ export default function CreateComplaintPage() {
           />
 
           <input
-            className="w-full border p-3 rounded"
+            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white placeholder:text-slate-400"
             placeholder="Category"
-            value={category}
+            value={category || ""}
             onChange={(e) =>
               setCategory(
                 e.target.value
@@ -184,19 +334,29 @@ export default function CreateComplaintPage() {
 
           {/* AI Analysis Card */}
 
-          <div className="bg-blue-50 border border-blue-200 p-4 rounded">
+          <div className="bg-blue-500/10 border border-blue-500/20 backdrop-blur-xl rounded-2xl p-5 p-4 rounded">
             <h3 className="font-bold text-lg mb-3">
               🤖 AI Analysis
             </h3>
 
             <div className="space-y-2">
               <p>
-                <strong>
-                  Category:
-                </strong>{" "}
-                {category ||
-                  "Not analyzed yet"}
-              </p>
+  <strong>
+    Category:
+  </strong>{" "}
+  {category}
+</p>
+
+{confidence && (
+
+  <p>
+    <strong>
+      Confidence:
+    </strong>{" "}
+    {confidence}%
+  </p>
+
+)}
 
               <p>
                 <strong>
@@ -217,7 +377,67 @@ export default function CreateComplaintPage() {
               </p>
             </div>
           </div>
+          {imageAnalysis && (
+  <div className="bg-green-500/10
+border border-green-500/20
+backdrop-blur-xl
+rounded-2xl
+p-5 p-4 rounded">
 
+    <h3 className="font-bold text-lg mb-3">
+      📷 AI Image Analysis
+    </h3>
+
+    <p>
+      <strong>
+        Detected:
+      </strong>{" "}
+      {imageAnalysis.label}
+    </p>
+
+    <p>
+      <strong>
+        Suggested Category:
+      </strong>{" "}
+      {imageAnalysis.category}
+    </p>
+
+    <p>
+      <strong>
+        Confidence:
+      </strong>{" "}
+      {imageAnalysis.confidence}%
+    </p>
+
+  </div>
+)}
+{finalCategory && (
+  <div className="bg-purple-500/10
+border border-purple-500/20
+backdrop-blur-xl
+rounded-2xl
+p-5 p-4 rounded">
+
+    <h3 className="font-bold text-lg mb-3">
+      🧠 AI Verification Result
+    </h3>
+
+    <p>
+      <strong>
+        Final Category:
+      </strong>{" "}
+      {finalCategory}
+    </p>
+
+    <p>
+      <strong>
+        Verification:
+      </strong>{" "}
+      {consensus}
+    </p>
+
+  </div>
+)}
           <input
             className="w-full border p-3 rounded"
             placeholder="Latitude"
@@ -269,19 +489,36 @@ export default function CreateComplaintPage() {
             />
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <button
               onClick={analyzeWithAI}
-              className="bg-blue-600 text-white px-6 py-3 rounded"
+              className="bg-blue-600
+hover:bg-blue-700
+transition-all
+rounded-xl
+font-semibold text-white px-6 py-3 rounded"
             >
               🤖 Analyze with AI
             </button>
-
+            <button
+             onClick={analyzeImage}
+             className="bg-green-600
+hover:bg-green-700
+transition-all
+rounded-xl
+font-semibold text-white px-6 py-3 rounded"
+>
+             📷 Analyze Image
+            </button>
             <button
               onClick={
                 submitComplaint
               }
-              className="bg-black text-white px-6 py-3 rounded"
+              className="bg-indigo-600
+hover:bg-indigo-700
+transition-all
+rounded-xl
+font-semibold text-white px-6 py-3 rounded"
             >
               Submit Complaint
             </button>

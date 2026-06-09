@@ -70,3 +70,57 @@ def hotspot_analysis(
         "top_category":
             top_category,
     }
+@router.get("/summary")
+def analytics_summary(
+    db: Session = Depends(get_db)
+):
+
+    complaints = db.query(
+        Complaint
+    ).all()
+
+    total = len(complaints)
+
+    pending = len([
+        c for c in complaints
+        if c.status == "pending"
+    ])
+
+    resolved = len([
+        c for c in complaints
+        if c.status == "resolved"
+    ])
+
+    high_priority = len([
+        c for c in complaints
+        if (
+            c.severity and
+            c.severity.lower() == "high"
+        )
+    ])
+
+    categories = {}
+
+    for complaint in complaints:
+
+        category = (
+            complaint.category
+            or "Unknown"
+        )
+
+        categories[category] = (
+            categories.get(
+                category,
+                0
+            ) + 1
+        )
+
+    return {
+        "total": total,
+        "pending": pending,
+        "resolved": resolved,
+        "high_priority":
+            high_priority,
+        "categories":
+            categories
+    }

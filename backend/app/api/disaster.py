@@ -21,31 +21,67 @@ def disaster_risk(
     db: Session = Depends(get_db)
 ):
 
-    response = requests.get(
-        "http://api.weatherapi.com/v1/current.json",
-        params={
-            "key": API_KEY,
-            "q": f"{lat},{lon}"
-        }
-    )
+    try:
 
-    data = response.json()
+        response = requests.get(
+            "https://api.weatherapi.com/v1/current.json",
+            params={
+                "key": API_KEY,
+                "q": f"{lat},{lon}"
+            },
+            timeout=10
+        )
+
+        data = response.json()
+
+    except Exception:
+
+        return {
+            "flood_risk": 0,
+            "thunderstorm_risk": 0,
+            "heatwave_risk": 0,
+            "temperature": 0,
+            "humidity": 0,
+            "wind_speed": 0,
+            "status": "Weather service unavailable"
+        }
 
     temp = data["current"]["temp_c"]
+
     humidity = data["current"]["humidity"]
+
     wind = data["current"]["wind_kph"]
 
-    drainage_count = db.query(
+    nearby_complaints = db.query(
         Complaint
     ).filter(
-        Complaint.category.ilike("%drain%")
-    ).count()
+        Complaint.latitude.between(
+            lat - 0.05,
+            lat + 0.05
+        ),
+        Complaint.longitude.between(
+            lon - 0.05,
+            lon + 0.05
+        )
+    ).all()
 
-    water_count = db.query(
-        Complaint
-    ).filter(
-        Complaint.category.ilike("%water%")
-    ).count()
+    drainage_count = len([
+        c for c in nearby_complaints
+        if c.category and
+        "drain" in c.category.lower()
+    ])
+
+    water_count = len([
+        c for c in nearby_complaints
+        if c.category and
+        "water" in c.category.lower()
+    ])
+
+    road_count = len([
+        c for c in nearby_complaints
+        if c.category and
+        "road" in c.category.lower()
+    ])
 
     flood_risk = min(
         100,
@@ -69,15 +105,17 @@ def disaster_risk(
         100,
         int(temp * 2)
     )
+
     return {
-    "flood_risk": flood_risk,
-    "thunderstorm_risk": thunderstorm_risk,
-    "heatwave_risk": heatwave_risk,
+        "flood_risk": flood_risk,
+        "thunderstorm_risk": thunderstorm_risk,
+        "heatwave_risk": heatwave_risk,
 
-    "drainage_complaints": drainage_count,
-    "water_complaints": water_count,
+        "drainage_complaints": drainage_count,
+        "water_complaints": water_count,
+        "road_complaints": road_count,
 
-    "temperature": temp,
-    "humidity": humidity,
-    "wind_speed": wind,
-}
+        "temperature": temp,
+        "humidity": humidity,
+        "wind_speed": wind
+    }

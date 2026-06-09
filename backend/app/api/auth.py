@@ -50,7 +50,7 @@ def register(
     name=user.name,
     email=user.email,
     password=hash_password(user.password),
-    role="admin"
+    role="citizen"
 )
 
     db.add(new_user)
@@ -87,7 +87,8 @@ def login(
 
     access_token = create_access_token(
         {
-            "sub": db_user.email
+            "sub": db_user.email,
+            "role": db_user.role
         }
     )
 
