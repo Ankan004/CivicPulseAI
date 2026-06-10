@@ -99,7 +99,7 @@ const [consensus, setConsensus] =
       new FormData();
 
     formData.append(
-      "file",
+      "image",
       image
     );
 
@@ -109,9 +109,7 @@ const [consensus, setConsensus] =
         formData
       );
     console.log(response.data);
-    setImageAnalysis(
-  response.data
-);
+  
 
 setImageAnalysis(
   response.data
@@ -173,7 +171,17 @@ Description:
 ${response.data.description}`
 );
 
-  const submitComplaint = async () => {
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "Image Analysis Failed"
+    );
+  }
+};
+
+const submitComplaint = async () => {
     try {
       const token =
         localStorage.getItem("token");
