@@ -36,6 +36,9 @@ export default function CreateComplaintPage() {
     useState<File | null>(null);
   const [imageAnalysis, setImageAnalysis] =
   useState<any>(null);
+  const [analyzingImage,
+setAnalyzingImage] =
+  useState(false);
   const [confidence,
 setConfidence] =
   useState<number | null>(
@@ -94,7 +97,7 @@ const [consensus, setConsensus] =
   }
 
   try {
-
+    setAnalyzingImage(true);
     const formData =
       new FormData();
 
@@ -173,12 +176,17 @@ ${response.data.description}`
 
   } catch (error) {
 
-    console.error(error);
+  console.error(error);
 
-    alert(
-      "Image Analysis Failed"
-    );
-  }
+  alert(
+    "Image Analysis Failed"
+  );
+
+} finally {
+
+  setAnalyzingImage(false);
+
+}
 };
 
 const submitComplaint = async () => {
@@ -521,15 +529,27 @@ font-semibold text-white px-6 py-3 rounded"
               🤖 Analyze with AI
             </button>
             <button
-             onClick={analyzeImage}
-             className="bg-green-600
-hover:bg-green-700
-transition-all
-rounded-xl
-font-semibold text-white px-6 py-3 rounded"
+  onClick={analyzeImage}
+  disabled={analyzingImage}
+  className="
+    bg-green-600
+    hover:bg-green-700
+    disabled:bg-gray-500
+    disabled:cursor-not-allowed
+    transition-all
+    rounded-xl
+    font-semibold
+    text-white
+    px-6
+    py-3
+  "
 >
-             📷 Analyze Image
-            </button>
+  {
+    analyzingImage
+      ? "🔄 Analyzing..."
+      : "📷 Analyze Image"
+  }
+</button>
             <button
               onClick={
                 submitComplaint
@@ -542,7 +562,46 @@ font-semibold text-white px-6 py-3 rounded"
             >
               Submit Complaint
             </button>
-          </div>
+                    </div>
+
+          {
+            analyzingImage && (
+
+              <div
+                className="
+                  mt-5
+                  flex
+                  items-center
+                  gap-3
+                "
+              >
+
+                <div
+                  className="
+                    h-5
+                    w-5
+                    border-2
+                    border-blue-500
+                    border-t-transparent
+                    rounded-full
+                    animate-spin
+                  "
+                />
+
+                <span
+                  className="
+                    text-blue-600
+                    font-medium
+                  "
+                >
+                  🤖 Gemini Vision is analyzing your image...
+                </span>
+
+              </div>
+
+            )
+          }
+
         </div>
       </main>
     </>
