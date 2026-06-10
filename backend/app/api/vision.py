@@ -3,9 +3,13 @@ from fastapi import UploadFile
 from fastapi import File
 
 import google.generativeai as genai
+
 from PIL import Image
+
 import io
 import os
+import json
+import time
 
 router = APIRouter(
     prefix="/vision",
@@ -13,7 +17,9 @@ router = APIRouter(
 )
 
 genai.configure(
-    api_key=os.getenv("GOOGLE_API_KEY")
+    api_key=os.getenv(
+        "GOOGLE_API_KEY"
+    )
 )
 
 model = genai.GenerativeModel(
@@ -27,6 +33,8 @@ async def analyze_image(
 ):
 
     try:
+
+        start = time.time()
 
         contents = await image.read()
 
@@ -59,20 +67,32 @@ Drainage
 Streetlight
 Other
 
-Do not return markdown.
-Do not use ```json.
-Return raw JSON only.
+Severity values:
+Low
+Medium
+High
+
+Priority values:
+Low
+Medium
+High
+
+Rules:
+- Return raw JSON only
+- Do not use markdown
+- Do not use ```json
+- Confidence should be between 0 and 100
 """
 
         response = model.generate_content(
             [prompt, pil_image]
         )
 
-        import json
+        print(
+            f"Gemini Vision Time: {time.time()-start:.2f}s"
+        )
 
         text = response.text.strip()
-
-        # Remove accidental markdown if Gemini adds it
 
         text = text.replace(
             "```json",
@@ -92,21 +112,34 @@ Return raw JSON only.
 
     except Exception as e:
 
-     error = str(e)
+        error = str(e)
 
-    if "429" in error:
+        print(
+            "Vision Error:",
+            error
+        )
+
+        if "429" in error:
+
+            return {
+                "error": True,
+                "message":
+                    "Gemini quota exceeded. Please try again later.",
+                "category": "Other",
+                "severity": "Medium",
+                "priority": "Medium",
+                "confidence": 0,
+                "description":
+                    "Vision analysis unavailable."
+            }
 
         return {
             "error": True,
-            "message":
-                "Gemini quota exceeded. Please try again later.",
+            "message": error,
             "category": "Other",
             "severity": "Medium",
             "priority": "Medium",
-            "confidence": 0
+            "confidence": 0,
+            "description":
+                "Failed to analyze image."
         }
-
-    return {
-        "error": True,
-        "message": error
-    }

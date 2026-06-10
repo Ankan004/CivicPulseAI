@@ -105,7 +105,7 @@ const [consensus, setConsensus] =
 
     const response =
       await axios.post(
-        "https://civicpulseai-production.up.railway.app/image-ai/analyze",
+        "https://civicpulseai-production.up.railway.app/vision/analyze-image",
         formData
       );
     console.log(response.data);
@@ -113,8 +113,24 @@ const [consensus, setConsensus] =
   response.data
 );
 
+setImageAnalysis(
+  response.data
+);
+
 setCategory(
   response.data.category
+);
+
+setSeverity(
+  response.data.severity.toLowerCase()
+);
+
+setPriority(
+  response.data.priority.toLowerCase()
+);
+
+setConfidence(
+  response.data.confidence
 );
 
 if (
@@ -138,28 +154,24 @@ setFinalCategory(
   response.data.category
 );
 
-    alert(
-      `📷 AI Image Analysis
-
-Detected:
-${response.data.label}
+alert(
+`📷 Gemini Vision Analysis
 
 Category:
 ${response.data.category}
 
+Severity:
+${response.data.severity}
+
+Priority:
+${response.data.priority}
+
 Confidence:
-${response.data.confidence}%`
-    );
+${response.data.confidence}%
 
-  } catch (error) {
-
-    console.error(error);
-
-    alert(
-      "Image Analysis Failed"
-    );
-  }
-};
+Description:
+${response.data.description}`
+);
 
   const submitComplaint = async () => {
     try {
@@ -173,7 +185,7 @@ ${response.data.confidence}%`
           new FormData();
 
         formData.append(
-          "file",
+          "image",
           image
         );
 
