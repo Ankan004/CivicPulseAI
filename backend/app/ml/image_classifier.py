@@ -1,3 +1,4 @@
+import time
 from transformers import (
     AutoImageProcessor,
     AutoModelForImageClassification,
@@ -20,7 +21,13 @@ classifier = pipeline(
 
 def analyze_image(image_path):
 
+    start = time.time()
+
     results = classifier(image_path)
+
+    print(
+        f"Image Classification: {time.time()-start:.2f}s"
+    )
 
     top = results[0]
 

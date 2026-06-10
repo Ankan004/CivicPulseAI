@@ -1,3 +1,4 @@
+import time
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
@@ -40,9 +41,20 @@ def create_complaint(
     current_user: User = Depends(get_current_user)
 ):
 
+    import time
+
+    start = time.time()
+
+    # AI Prediction Timing
+    t = time.time()
+
     ai_result = analyze_complaint(
         complaint.title,
         complaint.description
+    )
+
+    print(
+        f"AI Prediction: {time.time()-t:.2f}s"
     )
 
     print(
@@ -52,9 +64,17 @@ def create_complaint(
 
     # Duplicate Complaint Detection
 
+    t = time.time()
+
     existing_complaints = db.query(
         Complaint
     ).all()
+
+    print(
+        f"DB Fetch: {time.time()-t:.2f}s"
+    )
+
+    duplicate_start = time.time()
 
     for item in existing_complaints:
 
@@ -92,6 +112,14 @@ def create_complaint(
 
         if duplicate and distance < 2:
 
+            print(
+                f"Duplicate Detection: {time.time()-duplicate_start:.2f}s"
+            )
+
+            print(
+                f"TOTAL Complaint Time: {time.time()-start:.2f}s"
+            )
+
             return {
                 "message":
                     "Similar complaint already exists",
@@ -111,6 +139,14 @@ def create_complaint(
                 "status":
                     item.status
             }
+
+    print(
+        f"Duplicate Detection: {time.time()-duplicate_start:.2f}s"
+    )
+
+    # Save Complaint
+
+    save_start = time.time()
 
     new_complaint = Complaint(
         title=complaint.title,
@@ -132,8 +168,15 @@ def create_complaint(
     db.commit()
     db.refresh(new_complaint)
 
-    return new_complaint
+    print(
+        f"DB Save: {time.time()-save_start:.2f}s"
+    )
 
+    print(
+        f"TOTAL Complaint Time: {time.time()-start:.2f}s"
+    )
+
+    return new_complaint
 
 
     

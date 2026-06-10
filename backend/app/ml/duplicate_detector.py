@@ -1,3 +1,4 @@
+import time
 from sentence_transformers import (
     SentenceTransformer,
     util
@@ -13,6 +14,8 @@ def is_duplicate(
     threshold: float = 0.75
 ):
 
+    start = time.time()
+
     emb1 = model.encode(
         new_text,
         convert_to_tensor=True
@@ -21,6 +24,10 @@ def is_duplicate(
     emb2 = model.encode(
         existing_text,
         convert_to_tensor=True
+    )
+
+    print(
+        f"Embedding Time: {time.time()-start:.2f}s"
     )
 
     similarity = util.cos_sim(
