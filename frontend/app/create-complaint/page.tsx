@@ -39,6 +39,9 @@ export default function CreateComplaintPage() {
   const [analyzingImage,
 setAnalyzingImage] =
   useState(false);
+  const [submitting,
+setSubmitting] =
+  useState(false);
   const [confidence,
 setConfidence] =
   useState<number | null>(
@@ -191,6 +194,7 @@ ${response.data.description}`
 
 const submitComplaint = async () => {
     try {
+      setSubmitting(true);
       const token =
         localStorage.getItem("token");
 
@@ -201,7 +205,7 @@ const submitComplaint = async () => {
           new FormData();
 
         formData.append(
-          "image",
+          "file",
           image
         );
 
@@ -272,13 +276,18 @@ alert(
       setLongitude("");
       setImage(null);
     } catch (error) {
-      console.error(error);
 
-      alert(
-        "Failed to create complaint"
-      );
-    }
-  };
+  console.error(error);
+
+  alert(
+    "Failed to create complaint"
+  );
+
+} finally {
+
+  setSubmitting(false);
+
+}
 
   return (
     <>
@@ -518,92 +527,163 @@ p-5 p-4 rounded">
           </div>
 
           <div className="flex gap-4 flex-wrap">
-            <button
-              onClick={analyzeWithAI}
-              className="bg-blue-600
-hover:bg-blue-700
-transition-all
-rounded-xl
-font-semibold text-white px-6 py-3 rounded"
-            >
-              🤖 Analyze with AI
-            </button>
-            <button
-  onClick={analyzeImage}
-  disabled={analyzingImage}
-  className="
-    bg-green-600
-    hover:bg-green-700
-    disabled:bg-gray-500
-    disabled:cursor-not-allowed
-    transition-all
-    rounded-xl
-    font-semibold
-    text-white
-    px-6
-    py-3
-  "
->
-  {
-    analyzingImage
-      ? "🔄 Analyzing..."
-      : "📷 Analyze Image"
-  }
-</button>
-            <button
-              onClick={
-                submitComplaint
-              }
-              className="bg-indigo-600
-hover:bg-indigo-700
-transition-all
-rounded-xl
-font-semibold text-white px-6 py-3 rounded"
-            >
-              Submit Complaint
-            </button>
-                    </div>
 
-          {
-            analyzingImage && (
+  <button
+    onClick={analyzeWithAI}
+    className="
+      bg-blue-600
+      hover:bg-blue-700
+      transition-all
+      rounded-xl
+      font-semibold
+      text-white
+      px-6
+      py-3
+    "
+  >
+    🤖 Analyze with AI
+  </button>
 
-              <div
-                className="
-                  mt-5
-                  flex
-                  items-center
-                  gap-3
-                "
-              >
+  <button
+    onClick={analyzeImage}
+    disabled={analyzingImage}
+    className="
+      bg-green-600
+      hover:bg-green-700
+      disabled:bg-gray-500
+      disabled:cursor-not-allowed
+      transition-all
+      rounded-xl
+      font-semibold
+      text-white
+      px-6
+      py-3
+    "
+  >
+    {
+      analyzingImage
+        ? "🔄 Analyzing..."
+        : "📷 Analyze Image"
+    }
+  </button>
 
-                <div
-                  className="
-                    h-5
-                    w-5
-                    border-2
-                    border-blue-500
-                    border-t-transparent
-                    rounded-full
-                    animate-spin
-                  "
-                />
+  <button
+    onClick={submitComplaint}
+    disabled={submitting}
+    className="
+      bg-indigo-600
+      hover:bg-indigo-700
+      disabled:bg-gray-500
+      disabled:cursor-not-allowed
+      transition-all
+      rounded-xl
+      font-semibold
+      text-white
+      px-6
+      py-3
+    "
+  >
+    {
+      submitting
+        ? "⏳ Submitting..."
+        : "Submit Complaint"
+    }
+  </button>
 
-                <span
-                  className="
-                    text-blue-600
-                    font-medium
-                  "
-                >
-                  🤖 Gemini Vision is analyzing your image...
-                </span>
+</div>
 
-              </div>
+{/* Image Analysis Loader */}
 
-            )
-          }
+{
+  analyzingImage && (
 
+    <div
+      className="
+        mt-5
+        p-4
+        rounded-xl
+        bg-blue-50
+        border
+        border-blue-200
+        flex
+        items-center
+        gap-3
+      "
+    >
+
+      <div
+        className="
+          h-5
+          w-5
+          border-2
+          border-blue-500
+          border-t-transparent
+          rounded-full
+          animate-spin
+        "
+      />
+
+      <span
+        className="
+          text-blue-700
+          font-medium
+        "
+      >
+        🤖 Gemini Vision is analyzing your image...
+      </span>
+
+    </div>
+
+  )
+}
+
+{/* Complaint Submission Loader */}
+
+{
+  submitting && (
+
+    <div
+      className="
+        mt-5
+        p-4
+        rounded-xl
+        bg-indigo-50
+        border
+        border-indigo-200
+        flex
+        items-center
+        gap-3
+      "
+    >
+
+      <div
+        className="
+          h-5
+          w-5
+          border-2
+          border-indigo-500
+          border-t-transparent
+          rounded-full
+          animate-spin
+        "
+      />
+
+      <span
+        className="
+          text-indigo-700
+          font-medium
+        "
+      >
+        📤 Uploading image and processing complaint...
+      </span>
+
+    </div>
+
+  )
+}
         </div>
       </main>
     </>
   );
 }
+}    
