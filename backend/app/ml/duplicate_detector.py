@@ -9,33 +9,21 @@ model = SentenceTransformer(
     "all-MiniLM-L6-v2"
 )
 
-def is_duplicate(
-    new_text: str,
-    existing_text: str,
+def get_embedding(
+    text: str
+):
+    return model.encode(
+        text,
+        convert_to_tensor=True
+    )
+
+def compare_embeddings(
+    emb1,
+    emb2,
     threshold: float = 0.75
 ):
 
-    start1 = time.time()
-
-    emb1 = model.encode(
-        new_text,
-        convert_to_tensor=True
-    )
-
-    print(
-        f"New Text Encode: {time.time()-start1:.2f}s"
-    )
-
-    start2 = time.time()
-
-    emb2 = model.encode(
-        existing_text,
-        convert_to_tensor=True
-    )
-
-    print(
-        f"Existing Text Encode: {time.time()-start2:.2f}s"
-    )
+    start = time.time()
 
     similarity = util.cos_sim(
         emb1,
@@ -43,7 +31,7 @@ def is_duplicate(
     ).item()
 
     print(
-        f"Similarity Calculation: {similarity:.4f}"
+        f"Similarity Calc: {time.time()-start:.4f}s"
     )
 
     return (

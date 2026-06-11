@@ -18,7 +18,8 @@ from app.schemas.complaint import (
     ComplaintStatusUpdate
 )
 from app.ml.duplicate_detector import (
-    is_duplicate
+    get_embedding,
+    compare_embeddings
 )
 from app.ml.predict import analyze_complaint
 
@@ -41,11 +42,10 @@ def create_complaint(
     current_user: User = Depends(get_current_user)
 ):
 
-    import time
-
     start = time.time()
 
-    # AI Prediction Timing
+    # AI Prediction
+
     t = time.time()
 
     ai_result = analyze_complaint(
@@ -64,28 +64,41 @@ def create_complaint(
 
     # Duplicate Complaint Detection
 
-    t = time.time()
+    duplicate_start = time.time()
+
+    new_text = (
+        complaint.title +
+        " " +
+        complaint.description
+    )
+
+    new_embedding = get_embedding(
+        new_text
+    )
 
     existing_complaints = db.query(
         Complaint
     ).all()
 
     print(
-        f"DB Fetch: {time.time()-t:.2f}s"
+        f"DB Fetch: {time.time()-duplicate_start:.2f}s"
     )
-
-    duplicate_start = time.time()
 
     for item in existing_complaints:
 
-        duplicate, score = is_duplicate(
-            complaint.title +
-            " " +
-            complaint.description,
-
+        existing_text = (
             item.title +
             " " +
             item.description
+        )
+
+        existing_embedding = get_embedding(
+            existing_text
+        )
+
+        duplicate, score = compare_embeddings(
+            new_embedding,
+            existing_embedding
         )
 
         print(
