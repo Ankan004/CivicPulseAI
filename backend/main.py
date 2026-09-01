@@ -1,17 +1,32 @@
+import os
 import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-logging.basicConfig(level=logging.INFO)
+
+# ============================================================
+# LOGGING
+# ============================================================
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
 
 logger = logging.getLogger("civicpulse")
+
+
+# ============================================================
+# APP
+# ============================================================
 
 app = FastAPI(
     title="CivicPulse AI",
     version="1.0.0",
 )
+
 
 # ============================================================
 # CORS
@@ -56,6 +71,7 @@ def health():
 
 @app.get("/health/database")
 def database_health():
+
     try:
         from sqlalchemy import text
         from app.database.session import engine
@@ -69,6 +85,7 @@ def database_health():
         }
 
     except Exception as exc:
+
         logger.exception("Database connection failed")
 
         return {
@@ -79,96 +96,112 @@ def database_health():
 
 
 # ============================================================
-# CORE API ROUTERS
+# LOAD CORE ROUTERS AFTER SERVER STARTS
 # ============================================================
 
-from app.api.auth import router as auth_router
-from app.api.users import router as users_router
+@app.on_event("startup")
+async def load_core_routers():
 
-from app.api.dashboard import router as dashboard_router
-from app.api.admin_dashboard import router as admin_dashboard_router
+    logger.info("========================================")
+    logger.info("CivicPulse AI startup")
+    logger.info("Loading core API routers...")
+    logger.info("========================================")
 
-from app.api.complaints import router as complaints_router
+    routers = [
+        ("auth", "app.api.auth", "router"),
+        ("users", "app.api.users", "router"),
 
-from app.api.map_dashboard import router as map_router
-from app.api.risk_map import router as risk_map_router
+        ("dashboard", "app.api.dashboard", "router"),
+        ("admin_dashboard", "app.api.admin_dashboard", "router"),
 
-from app.api.location import router as location_router
-from app.api.upload import router as upload_router
+        ("complaints", "app.api.complaints", "router"),
 
-from app.api.weather import router as weather_router
-from app.api.disaster import router as disaster_router
+        ("map_dashboard", "app.api.map_dashboard", "router"),
+        ("risk_map", "app.api.risk_map", "router"),
 
-from app.api.analytics import router as analytics_router
+        ("location", "app.api.location", "router"),
+        ("upload", "app.api.upload", "router"),
 
+        ("weather", "app.api.weather", "router"),
+        ("disaster", "app.api.disaster", "router"),
 
-# ============================================================
-# REGISTER CORE ROUTERS
-# ============================================================
+        ("analytics", "app.api.analytics", "router"),
+    ]
 
-app.include_router(auth_router)
-app.include_router(users_router)
+    loaded = 0
+    failed = 0
 
-app.include_router(dashboard_router)
-app.include_router(admin_dashboard_router)
+    for name, module_name, router_name in routers:
 
-app.include_router(complaints_router)
+        try:
 
-app.include_router(map_router)
-app.include_router(risk_map_router)
+            logger.info("Loading router: %s", name)
 
-app.include_router(location_router)
-app.include_router(upload_router)
+            module = __import__(
+                module_name,
+                fromlist=[router_name],
+            )
 
-app.include_router(weather_router)
-app.include_router(disaster_router)
+            router = getattr(module, router_name)
 
-app.include_router(analytics_router)
+            app.include_router(router)
 
+            loaded += 1
 
-# ============================================================
-# HEAVY AI/ML FEATURES TEMPORARILY DISABLED
-# ============================================================
+            logger.info(
+                "Router loaded successfully: %s",
+                name,
+            )
 
-logger.info("Heavy AI/ML routers disabled for stable deployment.")
+        except Exception as exc:
 
-# Temporarily disabled:
-#
-# from app.api.ai import router as ai_router
-# from app.api.vision import router as vision_router
-# from app.api.assistant import router as assistant_router
-# from app.api.hotspots import router as hotspots_router
-#
-# app.include_router(ai_router)
-# app.include_router(vision_router)
-# app.include_router(assistant_router)
-# app.include_router(hotspots_router)
+            failed += 1
+
+            logger.exception(
+                "Router failed to load: %s | %s",
+                name,
+                exc,
+            )
+
+    logger.info("========================================")
+    logger.info(
+        "Core routers loaded: %s | failed: %s",
+        loaded,
+        failed,
+    )
+    logger.info("Heavy AI/ML routers remain disabled.")
+    logger.info("========================================")
 
 
 # ============================================================
 # UPLOAD DIRECTORY
 # ============================================================
 
-import os
-
 os.makedirs("uploads", exist_ok=True)
 
 app.mount(
     "/uploads",
-    StaticFiles(directory="uploads"),
+    StaticFiles(
+        directory="uploads",
+    ),
     name="uploads",
 )
 
 
 # ============================================================
-# STARTUP
+# HEAVY AI/ML FEATURES DISABLED
 # ============================================================
 
-@app.on_event("startup")
-async def startup_event():
-    logger.info("========================================")
-    logger.info("CivicPulse AI backend started")
-    logger.info("Core APIs enabled")
-    logger.info("Heavy AI/ML features disabled")
-    logger.info("Application startup complete")
-    logger.info("========================================")
+# Intentionally NOT loading:
+#
+# app.api.ai
+# app.api.vision
+# app.api.assistant
+# app.api.hotspots
+#
+# These will be added later using proper lazy loading /
+# background initialization.
+
+
+logger.info("CivicPulse AI application object created.")
+logger.info("Health endpoint is available.")
