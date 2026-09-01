@@ -1,0 +1,40 @@
+# Python
+backend/venv/
+backend/venv-test/
+venv/
+venv-test/
+__pycache__/
+*.pyc
+
+# Environment Variables / Secrets
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env.local
+
+# Database
+*.db
+
+# Uploads
+backend/uploads/
+
+# ML Cache
+*.pkl
+*.pkl.bak
+
+# Next.js
+frontend/node_modules/
+frontend/.next/
+.next/
+out/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
