@@ -127,6 +127,8 @@ async def load_core_routers():
 
         ("analytics", "app.api.analytics", "router"),
         ("hotspots", "app.api.hotspots", "router"),
+        ("ai", "app.api.ai", "router"),
+        ("vision", "app.api.vision", "router"),
     ]
 
     loaded = 0
