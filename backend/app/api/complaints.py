@@ -1,311 +1,184 @@
-import time
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import HTTPException
-from sqlalchemy.orm import Session
 import csv
-from fastapi.responses import StreamingResponse
 from io import StringIO
-from geopy.distance import geodesic
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 
 from app.models.complaint import Complaint
 from app.models.user import User
-from app.core.admin import admin_required
 
 from app.schemas.complaint import (
     ComplaintCreate,
     ComplaintResponse,
-    ComplaintStatusUpdate
+    ComplaintStatusUpdate,
 )
-from app.ml.duplicate_detector import (
-    get_embedding,
-    compare_embeddings,
-    embedding_to_json,
-    json_to_embedding
-)
-from app.ml.predict import analyze_complaint
 
 from app.database.dependencies import get_db
-
 from app.core.dependencies import get_current_user
+from app.core.admin import admin_required
 
+
+# ============================================================
+# ROUTER
+# ============================================================
 
 router = APIRouter(
     prefix="/complaints",
-    tags=["Complaints"]
+    tags=["Complaints"],
 )
 
 
+# ============================================================
+# CREATE COMPLAINT
+# ============================================================
 
 @router.post("/")
 def create_complaint(
     complaint: ComplaintCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
+    """
+    Create a civic complaint.
 
-    start = time.time()
+    Heavy AI/ML processing is intentionally disabled for the
+    lightweight production deployment.
 
-    # AI Prediction
+    Category, severity and priority are taken from the request
+    when supplied. Otherwise safe defaults are used.
+    """
 
-    t = time.time()
+    # --------------------------------------------------------
+    # Lightweight defaults
+    # --------------------------------------------------------
 
-    ai_result = analyze_complaint(
-        complaint.title,
-        complaint.description
-    )
+    category = getattr(complaint, "category", None) or "General"
 
-    print(
-        f"AI Prediction: {time.time()-t:.2f}s"
-    )
+    severity = getattr(complaint, "severity", None) or "Medium"
 
-    print(
-        "ML Prediction:",
-        ai_result
-    )
+    priority = getattr(complaint, "priority", None) or "Medium"
 
-    # Generate Embedding Once
-
-    new_text = (
-        complaint.title +
-        " " +
-        complaint.description
-    )
-
-    new_embedding = get_embedding(
-        new_text
-    )
-
-    # Duplicate Detection
-
-    duplicate_start = time.time()
-
-    existing_complaints = db.query(
-        Complaint
-    ).all()
-
-    print(
-        f"DB Fetch: {time.time()-duplicate_start:.2f}s"
-    )
-
-    for item in existing_complaints:
-
-        # Skip old complaints
-        # that do not yet have embeddings
-
-        if not item.embedding:
-            continue
-
-        existing_embedding = (
-            json_to_embedding(
-                item.embedding
-            )
-        )
-
-        duplicate, score = (
-            compare_embeddings(
-                new_embedding,
-                existing_embedding
-            )
-        )
-
-        print(
-            "Similarity Score:",
-            score
-        )
-
-        distance = geodesic(
-            (
-                complaint.latitude,
-                complaint.longitude
-            ),
-            (
-                item.latitude,
-                item.longitude
-            )
-        ).km
-
-        print(
-            "Distance:",
-            distance,
-            "km"
-        )
-
-        if duplicate and distance < 2:
-
-            print(
-                f"Duplicate Detection: {time.time()-duplicate_start:.2f}s"
-            )
-
-            print(
-                f"TOTAL Complaint Time: {time.time()-start:.2f}s"
-            )
-
-            return {
-                "message":
-                    "Similar complaint already exists",
-
-                "existing_complaint_id":
-                    item.id,
-
-                "existing_title":
-                    item.title,
-
-                "similarity_score":
-                    round(score * 100, 2),
-
-                "distance_km":
-                    round(distance, 2),
-
-                "status":
-                    item.status
-            }
-
-    print(
-        f"Duplicate Detection: {time.time()-duplicate_start:.2f}s"
-    )
-
-    # Save Complaint
-
-    save_start = time.time()
+    # --------------------------------------------------------
+    # Create database object
+    # --------------------------------------------------------
 
     new_complaint = Complaint(
         title=complaint.title,
         description=complaint.description,
 
-        category=ai_result["category"],
-        severity=ai_result["severity"],
-        priority=ai_result["priority"],
+        category=category,
+        severity=severity,
+        priority=priority,
 
         latitude=complaint.latitude,
         longitude=complaint.longitude,
 
         image_url=complaint.image_url,
 
-        embedding=embedding_to_json(
-            new_embedding
-        ),
-
-        user_id=current_user.id
+        user_id=current_user.id,
     )
 
     db.add(new_complaint)
+
     db.commit()
+
     db.refresh(new_complaint)
-
-    print(
-        f"DB Save: {time.time()-save_start:.2f}s"
-    )
-
-    print(
-        f"TOTAL Complaint Time: {time.time()-start:.2f}s"
-    )
 
     return new_complaint
 
 
-    
-
+# ============================================================
+# GET ALL COMPLAINTS
+# ============================================================
 
 @router.get(
     "/",
-    response_model=list[ComplaintResponse]
+    response_model=list[ComplaintResponse],
 )
 def get_complaints(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    return db.query(Complaint).all()
+    return (
+        db.query(Complaint)
+        .order_by(Complaint.id.desc())
+        .all()
+    )
 
+
+# ============================================================
+# GET MY COMPLAINTS
+# ============================================================
 
 @router.get("/my-complaints")
 def my_complaints(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-
-    complaints = db.query(Complaint).filter(
-        Complaint.user_id == current_user.id
-    ).all()
+    complaints = (
+        db.query(Complaint)
+        .filter(
+            Complaint.user_id == current_user.id
+        )
+        .order_by(Complaint.id.desc())
+        .all()
+    )
 
     return complaints
 
 
-@router.patch("/{complaint_id}/status")
-def update_status(
-    complaint_id: int,
-    data: ComplaintStatusUpdate,
-    db: Session = Depends(get_db),
-    admin_user = Depends(admin_required)
-):
+# ============================================================
+# EXPORT CSV
+# ============================================================
 
-    complaint = db.query(Complaint).filter(
-        Complaint.id == complaint_id
-    ).first()
-
-    if not complaint:
-        return {
-            "message": "Complaint not found"
-        }
-
-    complaint.status = data.status
-
-    db.commit()
-    db.refresh(complaint)
-
-    return complaint
-@router.get("/{complaint_id}")
-def get_complaint(
-    complaint_id: int,
-    db: Session = Depends(get_db)
-):
-
-    complaint = db.query(
-        Complaint
-    ).filter(
-        Complaint.id == complaint_id
-    ).first()
-
-    if not complaint:
-
-        raise HTTPException(
-            status_code=404,
-            detail="Complaint not found"
-        )
-
-    return complaint
+# IMPORTANT:
+# This route is intentionally placed BEFORE /{complaint_id}
 
 @router.get("/export/csv")
 def export_csv(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-
-    complaints = db.query(
-        Complaint
-    ).all()
+    complaints = (
+        db.query(Complaint)
+        .order_by(Complaint.id.asc())
+        .all()
+    )
 
     output = StringIO()
 
-    writer = csv.writer(
-        output
-    )
+    writer = csv.writer(output)
 
-    writer.writerow([
-        "ID",
-        "Title",
-        "Category",
-        "Priority",
-        "Status"
-    ])
+    writer.writerow(
+        [
+            "ID",
+            "Title",
+            "Description",
+            "Category",
+            "Severity",
+            "Priority",
+            "Status",
+            "Latitude",
+            "Longitude",
+            "User ID",
+        ]
+    )
 
     for complaint in complaints:
 
-        writer.writerow([
-            complaint.id,
-            complaint.title,
-            complaint.category,
-            complaint.priority,
-            complaint.status
-        ])
+        writer.writerow(
+            [
+                complaint.id,
+                complaint.title,
+                complaint.description,
+                complaint.category,
+                complaint.severity,
+                complaint.priority,
+                complaint.status,
+                complaint.latitude,
+                complaint.longitude,
+                complaint.user_id,
+            ]
+        )
 
     output.seek(0)
 
@@ -314,6 +187,67 @@ def export_csv(
         media_type="text/csv",
         headers={
             "Content-Disposition":
-            "attachment; filename=complaints.csv"
-        }
+                "attachment; filename=complaints.csv"
+        },
     )
+
+
+# ============================================================
+# UPDATE COMPLAINT STATUS
+# ============================================================
+
+@router.patch("/{complaint_id}/status")
+def update_status(
+    complaint_id: int,
+    data: ComplaintStatusUpdate,
+    db: Session = Depends(get_db),
+    admin_user=Depends(admin_required),
+):
+    complaint = (
+        db.query(Complaint)
+        .filter(
+            Complaint.id == complaint_id
+        )
+        .first()
+    )
+
+    if not complaint:
+        raise HTTPException(
+            status_code=404,
+            detail="Complaint not found",
+        )
+
+    complaint.status = data.status
+
+    db.commit()
+
+    db.refresh(complaint)
+
+    return complaint
+
+
+# ============================================================
+# GET SINGLE COMPLAINT
+# ============================================================
+
+@router.get("/{complaint_id}")
+def get_complaint(
+    complaint_id: int,
+    db: Session = Depends(get_db),
+):
+    complaint = (
+        db.query(Complaint)
+        .filter(
+            Complaint.id == complaint_id
+        )
+        .first()
+    )
+
+    if not complaint:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Complaint not found",
+        )
+
+    return complaint
