@@ -42,42 +42,65 @@ def create_complaint(
     """
     Create a civic complaint.
 
-    Heavy AI/ML processing is intentionally disabled for the
-    lightweight production deployment.
+    The trained ML models are loaded lazily only when a
+    complaint is submitted.
 
-    Category, severity and priority are taken from the request
-    when supplied. Otherwise safe defaults are used.
+    ML prediction:
+        - category
+        - severity
+        - priority
+
+    This keeps the models out of FastAPI startup.
     """
 
-    # --------------------------------------------------------
-    # Lightweight defaults
-    # --------------------------------------------------------
+    # ========================================================
+    # LAZY LOAD ML PREDICTION
+    # ========================================================
 
-    category = getattr(complaint, "category", None) or "General"
+    from app.ml.predict import analyze_complaint
 
-    severity = getattr(complaint, "severity", None) or "Medium"
+    ai_result = analyze_complaint(
+        complaint.title,
+        complaint.description,
+    )
 
-    priority = getattr(complaint, "priority", None) or "Medium"
+    # ========================================================
+    # ML RESULTS
+    # ========================================================
 
-    # --------------------------------------------------------
-    # Create database object
-    # --------------------------------------------------------
+    category = ai_result["category"]
+
+    severity = ai_result["severity"]
+
+    priority = ai_result["priority"]
+
+    # ========================================================
+    # CREATE DATABASE OBJECT
+    # ========================================================
 
     new_complaint = Complaint(
         title=complaint.title,
+
         description=complaint.description,
 
         category=category,
+
         severity=severity,
+
         priority=priority,
 
         latitude=complaint.latitude,
+
         longitude=complaint.longitude,
 
         image_url=complaint.image_url,
 
         user_id=current_user.id,
     )
+
+    # ========================================================
+    # SAVE
+    # ========================================================
 
     db.add(new_complaint)
 
@@ -101,7 +124,9 @@ def get_complaints(
 ):
     return (
         db.query(Complaint)
-        .order_by(Complaint.id.desc())
+        .order_by(
+            Complaint.id.desc()
+        )
         .all()
     )
 
@@ -113,14 +138,20 @@ def get_complaints(
 @router.get("/my-complaints")
 def my_complaints(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     complaints = (
         db.query(Complaint)
         .filter(
-            Complaint.user_id == current_user.id
+            Complaint.user_id
+            == current_user.id
         )
-        .order_by(Complaint.id.desc())
+        .order_by(
+            Complaint.id.desc()
+        )
         .all()
     )
 
@@ -132,7 +163,7 @@ def my_complaints(
 # ============================================================
 
 # IMPORTANT:
-# This route is intentionally placed BEFORE /{complaint_id}
+# Keep this route before /{complaint_id}
 
 @router.get("/export/csv")
 def export_csv(
@@ -140,7 +171,9 @@ def export_csv(
 ):
     complaints = (
         db.query(Complaint)
-        .order_by(Complaint.id.asc())
+        .order_by(
+            Complaint.id.asc()
+        )
         .all()
     )
 
@@ -168,14 +201,23 @@ def export_csv(
         writer.writerow(
             [
                 complaint.id,
+
                 complaint.title,
+
                 complaint.description,
+
                 complaint.category,
+
                 complaint.severity,
+
                 complaint.priority,
+
                 complaint.status,
+
                 complaint.latitude,
+
                 complaint.longitude,
+
                 complaint.user_id,
             ]
         )
@@ -183,11 +225,17 @@ def export_csv(
     output.seek(0)
 
     return StreamingResponse(
-        iter([output.getvalue()]),
+        iter(
+            [
+                output.getvalue()
+            ]
+        ),
         media_type="text/csv",
+
         headers={
             "Content-Disposition":
-                "attachment; filename=complaints.csv"
+                "attachment; "
+                "filename=complaints.csv"
         },
     )
 
@@ -196,22 +244,31 @@ def export_csv(
 # UPDATE COMPLAINT STATUS
 # ============================================================
 
-@router.patch("/{complaint_id}/status")
+@router.patch(
+    "/{complaint_id}/status"
+)
 def update_status(
     complaint_id: int,
+
     data: ComplaintStatusUpdate,
+
     db: Session = Depends(get_db),
-    admin_user=Depends(admin_required),
+
+    admin_user=Depends(
+        admin_required
+    ),
 ):
     complaint = (
         db.query(Complaint)
         .filter(
-            Complaint.id == complaint_id
+            Complaint.id
+            == complaint_id
         )
         .first()
     )
 
     if not complaint:
+
         raise HTTPException(
             status_code=404,
             detail="Complaint not found",
@@ -230,15 +287,19 @@ def update_status(
 # GET SINGLE COMPLAINT
 # ============================================================
 
-@router.get("/{complaint_id}")
+@router.get(
+    "/{complaint_id}"
+)
 def get_complaint(
     complaint_id: int,
+
     db: Session = Depends(get_db),
 ):
     complaint = (
         db.query(Complaint)
         .filter(
-            Complaint.id == complaint_id
+            Complaint.id
+            == complaint_id
         )
         .first()
     )
