@@ -22,6 +22,9 @@ backend/uploads/
 # ML Cache
 *.pkl
 *.pkl.bak
+!backend/app/ml/category_model.pkl
+!backend/app/ml/severity_model.pkl
+!backend/app/ml/priority_model.pkl
 
 # Next.js
 frontend/node_modules/
