@@ -38,7 +38,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://civic-pulse-ai-ashy.vercel.app",
+        "https://civic-pulse-ai-roan.vercel.app",
     ],
 
     allow_credentials=True,
@@ -51,8 +51,6 @@ app.add_middleware(
         "*"
     ],
 )
-
-
 # ============================================================
 # HEALTH
 # ============================================================
