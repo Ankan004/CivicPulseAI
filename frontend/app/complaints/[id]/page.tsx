@@ -4,46 +4,76 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams } from "next/navigation";
 import Navbar from "../../../components/Navbar";
+import { apiUrl } from "@/lib/api";
 
 export default function ComplaintDetailsPage() {
-
   const params = useParams();
 
   const [complaint, setComplaint] =
     useState<any>(null);
 
+  const [error, setError] =
+    useState(false);
+
   useEffect(() => {
-
     fetchComplaint();
-
   }, []);
 
-  const fetchComplaint =
-    async () => {
-
+  const fetchComplaint = async () => {
     try {
-
-      const response =
-        await axios.get(
-          `http://127.0.0.1:8000/complaints/${params.id}`
-        );
-
-      setComplaint(
-        response.data
+      const response = await axios.get(
+        apiUrl(`/complaints/${params.id}`)
       );
 
-    } catch (error) {
+      setComplaint(response.data);
 
+    } catch (error) {
       console.error(error);
+      setError(true);
     }
   };
 
-  if (!complaint) {
-
+  if (error) {
     return (
-      <div className="p-10">
-        Loading...
-      </div>
+      <>
+        <Navbar />
+
+        <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-5xl mb-4">
+              ❌
+            </div>
+
+            <h1 className="text-2xl font-bold mb-2">
+              Complaint Not Found
+            </h1>
+
+            <p className="text-slate-400">
+              This complaint could not be loaded.
+            </p>
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  if (!complaint) {
+    return (
+      <>
+        <Navbar />
+
+        <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-4xl mb-4">
+              ⏳
+            </div>
+
+            <p className="text-slate-400">
+              Loading complaint...
+            </p>
+          </div>
+        </main>
+      </>
     );
   }
 
@@ -51,65 +81,95 @@ export default function ComplaintDetailsPage() {
     <>
       <Navbar />
 
-      <main className="min-h-screen bg-white text-black p-10">
+      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white p-10">
 
-        <h1 className="text-4xl font-bold mb-8">
-          Complaint Details
-        </h1>
+        <div className="max-w-4xl mx-auto">
 
-        <div className="border rounded-lg p-6 shadow">
-
-          <h2 className="text-3xl font-bold">
-            {complaint.title}
-          </h2>
-
-          <p className="mt-4">
-            {complaint.description}
+          <p className="text-cyan-400 font-semibold mb-3">
+            CIVICPULSE AI
           </p>
 
-          <div className="mt-6 space-y-2">
+          <h1 className="text-4xl font-bold mb-8">
+            Complaint Details
+          </h1>
 
-            <p>
-              <strong>
-                Category:
-              </strong>{" "}
-              {complaint.category}
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-xl">
+
+            <h2 className="text-3xl font-bold mb-4">
+              {complaint.title}
+            </h2>
+
+            <p className="text-slate-300 leading-8 mb-8">
+              {complaint.description}
             </p>
 
-            <p>
-              <strong>
-                Severity:
-              </strong>{" "}
-              {complaint.severity}
-            </p>
+            <div className="grid md:grid-cols-2 gap-6">
 
-            <p>
-              <strong>
-                Priority:
-              </strong>{" "}
-              {complaint.priority}
-            </p>
+              <div>
+                <p className="text-slate-400">
+                  Category
+                </p>
 
-            <p>
-              <strong>
-                Status:
-              </strong>{" "}
-              {complaint.status}
-            </p>
+                <p className="font-semibold text-lg">
+                  {complaint.category}
+                </p>
+              </div>
 
-            <p>
-              <strong>
-                Latitude:
-              </strong>{" "}
-              {complaint.latitude}
-            </p>
+              <div>
+                <p className="text-slate-400">
+                  Severity
+                </p>
 
-            <p>
-              <strong>
-                Longitude:
-              </strong>{" "}
-              {complaint.longitude}
-            </p>
+                <p className="font-semibold text-lg">
+                  {complaint.severity}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-slate-400">
+                  Priority
+                </p>
+
+                <p className="font-semibold text-lg">
+                  {complaint.priority}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-slate-400">
+                  Status
+                </p>
+
+                <p className="font-semibold text-lg">
+                  {complaint.status}
+                </p>
+              </div>
+
+              {complaint.latitude != null && (
+                <div>
+                  <p className="text-slate-400">
+                    Latitude
+                  </p>
+
+                  <p className="font-semibold">
+                    {complaint.latitude}
+                  </p>
+                </div>
+              )}
+
+              {complaint.longitude != null && (
+                <div>
+                  <p className="text-slate-400">
+                    Longitude
+                  </p>
+
+                  <p className="font-semibold">
+                    {complaint.longitude}
+                  </p>
+                </div>
+              )}
+
+            </div>
 
           </div>
 

@@ -12,6 +12,7 @@ import axios from "axios";
 import L from "leaflet";
 
 import "leaflet/dist/leaflet.css";
+import { apiUrl } from "@/lib/api";
 
 const pendingIcon = new L.Icon({
   iconUrl:
@@ -65,7 +66,7 @@ export default function ComplaintMap() {
   const fetchComplaints = async () => {
     try {
       const response = await axios.get(
-        "http://127.0.0.1:8000/map/complaints"
+        apiUrl("/map/complaints")
       );
 
       setComplaints(response.data);
@@ -141,9 +142,7 @@ export default function ComplaintMap() {
                 Number(c.latitude),
                 Number(c.longitude),
               ]}
-              icon={getMarkerIcon(
-                c.status
-              )}
+              icon={getMarkerIcon(c.status)}
             >
               <Popup>
                 <div className="space-y-1">

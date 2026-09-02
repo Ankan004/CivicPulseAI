@@ -34,14 +34,22 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
+
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "https://civic-pulse-ai-ashy.vercel.app",
     ],
+
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+
+    allow_methods=[
+        "*"
+    ],
+
+    allow_headers=[
+        "*"
+    ],
 )
 
 
@@ -73,11 +81,15 @@ def health():
 def database_health():
 
     try:
+
         from sqlalchemy import text
         from app.database.session import engine
 
         with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
+
+            connection.execute(
+                text("SELECT 1")
+            )
 
         return {
             "status": "healthy",
@@ -86,7 +98,9 @@ def database_health():
 
     except Exception as exc:
 
-        logger.exception("Database connection failed")
+        logger.exception(
+            "Database connection failed"
+        )
 
         return {
             "status": "error",
@@ -96,70 +110,218 @@ def database_health():
 
 
 # ============================================================
-# LOAD CORE ROUTERS AFTER SERVER STARTS
+# LOAD API ROUTERS
 # ============================================================
 
 @app.on_event("startup")
 async def load_core_routers():
 
-    logger.info("========================================")
-    logger.info("CivicPulse AI startup")
-    logger.info("Loading core API routers...")
-    logger.info("========================================")
+    logger.info(
+        "========================================"
+    )
+
+    logger.info(
+        "CivicPulse AI startup"
+    )
+
+    logger.info(
+        "Loading API routers..."
+    )
+
+    logger.info(
+        "========================================"
+    )
+
 
     routers = [
-        ("auth", "app.api.auth", "router"),
-        ("users", "app.api.users", "router"),
 
-        ("dashboard", "app.api.dashboard", "router"),
-        ("admin_dashboard", "app.api.admin_dashboard", "router"),
+        # ----------------------------------------------------
+        # AUTHENTICATION
+        # ----------------------------------------------------
 
-        ("complaints", "app.api.complaints", "router"),
+        (
+            "auth",
+            "app.api.auth",
+            "router",
+        ),
 
-        ("map_dashboard", "app.api.map_dashboard", "router"),
-        ("risk_map", "app.api.risk_map", "router"),
+        (
+            "users",
+            "app.api.users",
+            "router",
+        ),
 
-        ("location", "app.api.location", "router"),
-        ("upload", "app.api.upload", "router"),
 
-        ("weather", "app.api.weather", "router"),
-        ("disaster", "app.api.disaster", "router"),
+        # ----------------------------------------------------
+        # COMPLAINTS
+        # ----------------------------------------------------
 
-        ("analytics", "app.api.analytics", "router"),
-        ("hotspots", "app.api.hotspots", "router"),
-        ("ai", "app.api.ai", "router"),
-        ("vision", "app.api.vision", "router"),
-        ("assistant", "app.api.assistant", "router"),
+        (
+            "complaints",
+            "app.api.complaints",
+            "router",
+        ),
+
+
+        # ----------------------------------------------------
+        # DASHBOARD
+        # ----------------------------------------------------
+
+        (
+            "dashboard",
+            "app.api.dashboard",
+            "router",
+        ),
+
+        (
+            "admin_dashboard",
+            "app.api.admin_dashboard",
+            "router",
+        ),
+
+
+        # ----------------------------------------------------
+        # MAP / LOCATION
+        # ----------------------------------------------------
+
+        (
+            "map_dashboard",
+            "app.api.map_dashboard",
+            "router",
+        ),
+
+        (
+            "risk_map",
+            "app.api.risk_map",
+            "router",
+        ),
+
+        (
+            "location",
+            "app.api.location",
+            "router",
+        ),
+
+
+        # ----------------------------------------------------
+        # WEATHER / DISASTER
+        # ----------------------------------------------------
+
+        (
+            "weather",
+            "app.api.weather",
+            "router",
+        ),
+
+        (
+            "disaster",
+            "app.api.disaster",
+            "router",
+        ),
+
+
+        # ----------------------------------------------------
+        # ANALYTICS
+        # ----------------------------------------------------
+
+        (
+            "analytics",
+            "app.api.analytics",
+            "router",
+        ),
+
+        (
+            "hotspots",
+            "app.api.hotspots",
+            "router",
+        ),
+
+
+        # ----------------------------------------------------
+        # AI / ML
+        # ----------------------------------------------------
+
+        (
+            "ai",
+            "app.api.ai",
+            "router",
+        ),
+
+        (
+            "vision",
+            "app.api.vision",
+            "router",
+        ),
+
+        (
+            "assistant",
+            "app.api.assistant",
+            "router",
+        ),
+
+
+        # ----------------------------------------------------
+        # FILE UPLOAD
+        # ----------------------------------------------------
+
+        (
+            "upload",
+            "app.api.upload",
+            "router",
+        ),
     ]
+
 
     loaded = 0
     failed = 0
+
+
+    # ========================================================
+    # LOAD ROUTERS
+    # ========================================================
 
     for name, module_name, router_name in routers:
 
         try:
 
-            logger.info("Loading router: %s", name)
+            logger.info(
+                "Loading router: %s",
+                name,
+            )
+
 
             module = __import__(
                 module_name,
-                fromlist=[router_name],
+                fromlist=[
+                    router_name
+                ],
             )
 
-            router = getattr(module, router_name)
 
-            app.include_router(router)
+            router = getattr(
+                module,
+                router_name,
+            )
+
+
+            app.include_router(
+                router
+            )
+
 
             loaded += 1
+
 
             logger.info(
                 "Router loaded successfully: %s",
                 name,
             )
 
+
         except Exception as exc:
 
             failed += 1
+
 
             logger.exception(
                 "Router failed to load: %s | %s",
@@ -167,45 +329,59 @@ async def load_core_routers():
                 exc,
             )
 
-    logger.info("========================================")
+
+    # ========================================================
+    # STARTUP SUMMARY
+    # ========================================================
+
     logger.info(
-        "Core routers loaded: %s | failed: %s",
+        "========================================"
+    )
+
+    logger.info(
+        "API routers loaded: %s | failed: %s",
         loaded,
         failed,
     )
-    logger.info("Heavy AI/ML routers remain disabled.")
-    logger.info("========================================")
+
+    logger.info(
+        "AI/ML routers are ENABLED."
+    )
+
+    logger.info(
+        "========================================"
+    )
 
 
 # ============================================================
 # UPLOAD DIRECTORY
 # ============================================================
 
-os.makedirs("uploads", exist_ok=True)
+UPLOAD_DIR = "uploads"
+
+os.makedirs(
+    UPLOAD_DIR,
+    exist_ok=True,
+)
+
 
 app.mount(
     "/uploads",
     StaticFiles(
-        directory="uploads",
+        directory=UPLOAD_DIR,
     ),
     name="uploads",
 )
 
 
 # ============================================================
-# HEAVY AI/ML FEATURES DISABLED
+# APPLICATION READY
 # ============================================================
 
-# Intentionally NOT loading:
-#
-# app.api.ai
-# app.api.vision
-# app.api.assistant
-# app.api.hotspots
-#
-# These will be added later using proper lazy loading /
-# background initialization.
+logger.info(
+    "CivicPulse AI application object created."
+)
 
-
-logger.info("CivicPulse AI application object created.")
-logger.info("Health endpoint is available.")
+logger.info(
+    "Health endpoint is available."
+)

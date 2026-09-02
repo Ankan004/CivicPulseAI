@@ -1,52 +1,113 @@
-from sqlalchemy import Column
-from sqlalchemy import Integer
-from sqlalchemy import String
-from sqlalchemy import Float
-from sqlalchemy import DateTime
-from sqlalchemy import ForeignKey
-from sqlalchemy import Text
-
 from datetime import datetime
+
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Float,
+    DateTime,
+    ForeignKey,
+    Text,
+)
 
 from app.database.base import Base
 
 
 class Complaint(Base):
+
     __tablename__ = "complaints"
 
-    id = Column(Integer, primary_key=True, index=True)
+    # ========================================================
+    # PRIMARY KEY
+    # ========================================================
 
-    title = Column(String, nullable=False)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
 
-    description = Column(String, nullable=False)
+    # ========================================================
+    # COMPLAINT INFORMATION
+    # ========================================================
 
-    category = Column(String, nullable=False)
+    title = Column(
+        String,
+        nullable=False,
+    )
 
-    severity = Column(String, default="medium")
-    priority = Column(String, default="medium")
+    description = Column(
+        String,
+        nullable=False,
+    )
 
-    status = Column(String, default="pending")
+    category = Column(
+        String,
+        nullable=False,
+    )
 
-    latitude = Column(Float)
+    severity = Column(
+        String,
+        default="medium",
+    )
 
-    longitude = Column(Float)
+    priority = Column(
+        String,
+        default="medium",
+    )
+
+    status = Column(
+        String,
+        default="pending",
+    )
+
+    # ========================================================
+    # LOCATION
+    # ========================================================
+
+    latitude = Column(
+        Float,
+        nullable=True,
+    )
+
+    longitude = Column(
+        Float,
+        nullable=True,
+    )
+
+    # ========================================================
+    # IMAGE
+    # ========================================================
 
     image_url = Column(
         String,
-        nullable=True
+        nullable=True,
     )
+
+    # ========================================================
+    # AI / ML EMBEDDING
+    # ========================================================
 
     embedding = Column(
         Text,
-        nullable=True
+        nullable=True,
     )
+
+    # ========================================================
+    # TIMESTAMP
+    # ========================================================
 
     created_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=datetime.utcnow,
     )
+
+    # ========================================================
+    # USER RELATION
+    # ========================================================
 
     user_id = Column(
         Integer,
-        ForeignKey("users.id")
+        ForeignKey("users.id"),
+        nullable=True,
     )

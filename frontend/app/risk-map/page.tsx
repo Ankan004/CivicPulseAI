@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import dynamic from "next/dynamic";
 import Navbar from "../../components/Navbar";
+import { apiUrl } from "@/lib/api";
 
 const MapContainer = dynamic(
   () =>
@@ -85,11 +86,11 @@ export default function RiskMapPage() {
       const [riskResponse, hotspotResponse] =
         await Promise.all([
           axios.get(
-            "http://127.0.0.1:8000/risk-map/"
+            apiUrl("/risk-map/")
           ),
 
           axios.get(
-            "http://127.0.0.1:8000/hotspots/"
+            apiUrl("/hotspots/")
           ),
         ]);
 
@@ -375,10 +376,6 @@ export default function RiskMapPage() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
 
-              {/* ================================================= */}
-              {/* HIGH RISK INDIVIDUAL COMPLAINTS */}
-              {/* ================================================= */}
-
               {data
                 .filter(
                   (item) =>
@@ -452,11 +449,6 @@ export default function RiskMapPage() {
 
                 ))}
 
-              {/* ================================================= */}
-              {/* AI HOTSPOT ZONES */}
-              {/* ONE CIRCLE PER CLUSTER */}
-              {/* ================================================= */}
-
               {hotspots.map(
                 (hotspot, index) => {
 
@@ -493,8 +485,6 @@ export default function RiskMapPage() {
 
                         <div className="w-72">
 
-                          {/* TITLE */}
-
                           <div className="border-b pb-3 mb-3">
 
                             <h3
@@ -514,55 +504,39 @@ export default function RiskMapPage() {
 
                           </div>
 
-                          {/* DETAILS */}
-
                           <div className="space-y-3">
 
                             <div className="flex justify-between gap-4">
-
                               <span>
                                 📊 Cluster
                               </span>
 
                               <span className="font-bold">
-                                #
-                                {
-                                  hotspot.cluster
-                                }
+                                #{hotspot.cluster}
                               </span>
-
                             </div>
 
                             <div className="flex justify-between gap-4">
-
                               <span>
                                 🚨 Complaints
                               </span>
 
                               <span className="font-bold">
-                                {
-                                  hotspot.cluster_size
-                                }
+                                {hotspot.cluster_size}
                               </span>
-
                             </div>
 
                             <div className="flex justify-between gap-4">
-
                               <span>
                                 📍 Category
                               </span>
 
                               <span className="font-bold text-right">
-                                {
-                                  hotspot.category
-                                }
+                                {hotspot.category}
                               </span>
-
                             </div>
 
                             <div className="flex justify-between gap-4">
-
                               <span>
                                 ⚠ Risk Level
                               </span>
@@ -574,62 +548,42 @@ export default function RiskMapPage() {
                                     hotspotColor,
                                 }}
                               >
-                                {
-                                  hotspot.risk_level
-                                }
+                                {hotspot.risk_level}
                               </span>
-
                             </div>
 
                             <div className="flex justify-between gap-4">
-
                               <span>
                                 🎯 Risk Score
                               </span>
 
                               <span className="font-bold">
-                                {
-                                  hotspot.risk_score
-                                }
-                                /100
+                                {hotspot.risk_score}/100
                               </span>
-
                             </div>
 
                             <div className="flex justify-between gap-4">
-
                               <span>
                                 📏 Zone Radius
                               </span>
 
                               <span className="font-bold">
-                                {
-                                  hotspot.radius
-                                }{" "}
-                                m
+                                {hotspot.radius} m
                               </span>
-
                             </div>
 
                           </div>
 
-                          {/* RISK BAR */}
-
                           <div className="mt-5">
 
                             <div className="flex justify-between text-xs text-gray-500 mb-1">
-
                               <span>
                                 Risk intensity
                               </span>
 
                               <span>
-                                {
-                                  hotspot.risk_score
-                                }
-                                %
+                                {hotspot.risk_score}%
                               </span>
-
                             </div>
 
                             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">

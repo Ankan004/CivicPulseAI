@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import dynamic from "next/dynamic";
 import Navbar from "../../components/Navbar";
 import { useRouter } from "next/navigation";
+
+import { apiUrl } from "@/lib/api";
+import { isAuthenticated } from "@/lib/auth";
 
 const LocationPicker = dynamic(
   () => import("../../components/LocationPicker"),
@@ -14,60 +17,82 @@ const LocationPicker = dynamic(
 );
 
 export default function CreateComplaintPage() {
+  const router = useRouter();
+
+  const [authorized, setAuthorized] = useState(false);
+
   const [title, setTitle] = useState("");
-  const [description, setDescription] =
-    useState("");
+  const [description, setDescription] = useState("");
 
-  const [category, setCategory] =
-    useState("");
+  const [category, setCategory] = useState("");
+  const [severity, setSeverity] = useState("medium");
+  const [priority, setPriority] = useState("medium");
 
-  const [severity, setSeverity] =
-    useState("medium");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
 
-  const [priority, setPriority] =
-    useState("medium");
+  const [image, setImage] = useState<File | null>(null);
 
-  const [latitude, setLatitude] =
-    useState("");
-
-  const [longitude, setLongitude] =
-    useState("");
-
-  const [image, setImage] =
-    useState<File | null>(null);
   const [imageAnalysis, setImageAnalysis] =
-  useState<any>(null);
-  const [analyzingImage,
-setAnalyzingImage] =
-  useState(false);
-  const [submitting,
-setSubmitting] =
-  useState(false);
-  const [confidence,
-setConfidence] =
-  useState<number | null>(
-    null
-  );
+    useState<any>(null);
 
-const [finalCategory, setFinalCategory] =
-  useState("");
+  const [analyzingImage, setAnalyzingImage] =
+    useState(false);
 
-const [consensus, setConsensus] =
-  useState("");
-const router = useRouter();
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  const [confidence, setConfidence] =
+    useState<number | null>(null);
+
+  const [finalCategory, setFinalCategory] =
+    useState("");
+
+  const [consensus, setConsensus] =
+    useState("");
+
+
+  // ==========================================================
+  // AUTHENTICATION GUARD
+  // ==========================================================
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace("/login");
+      return;
+    }
+
+    setAuthorized(true);
+  }, [router]);
+
+
+  // ==========================================================
+  // AI TEXT ANALYSIS
+  // ==========================================================
+
   const analyzeWithAI = async () => {
     try {
-      const response = await axios.post(
-  "http://127.0.0.1:8000/ai/classify",
-  {
-    title,
-    description,
-  }
-);
+      const token = localStorage.getItem("token");
 
-      setCategory(
-        response.data.category
+      if (!token) {
+        router.replace("/login");
+        return;
+      }
+
+      const response = await axios.post(
+        apiUrl("/ai/classify"),
+        {
+          title,
+          description,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
+
+      setCategory(response.data.category);
 
       setSeverity(
         response.data.severity
@@ -76,91 +101,108 @@ const router = useRouter();
       setPriority(
         response.data.priority
       );
-      setConfidence(
-  response.data
-    .category_confidence
-);
 
-      alert(
-        "🤖 AI Analysis Complete!"
+      setConfidence(
+        response.data.category_confidence
       );
+
+      alert("🤖 AI Analysis Complete!");
+
     } catch (error) {
       console.error(error);
 
-      alert(
-        "AI Analysis Failed"
-      );
+      if (
+        axios.isAxiosError(error) &&
+        error.response?.status === 401
+      ) {
+        localStorage.removeItem("token");
+        router.replace("/login");
+        return;
+      }
+
+      alert("AI Analysis Failed");
     }
   };
+
+
+  // ==========================================================
+  // IMAGE ANALYSIS
+  // ==========================================================
+
   const analyzeImage = async () => {
+    if (!image) {
+      alert("Please select an image first");
+      return;
+    }
 
-  if (!image) {
-    alert(
-      "Please select an image first"
-    );
-    return;
-  }
+    try {
+      setAnalyzingImage(true);
 
-  try {
-    setAnalyzingImage(true);
-    const formData =
-      new FormData();
+      const token = localStorage.getItem("token");
 
-    formData.append(
-      "image",
-      image
-    );
+      if (!token) {
+        router.replace("/login");
+        return;
+      }
 
-    const response =
-      await axios.post(
-        "http://127.0.0.1:8000/vision/analyze-image",
-        formData
+      const formData = new FormData();
+
+      formData.append(
+        "image",
+        image
       );
-    console.log(response.data);
-  
 
-setImageAnalysis(
-  response.data
-);
+      const response = await axios.post(
+        apiUrl("/vision/analyze-image"),
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-setCategory(
-  response.data.category
-);
+      console.log(response.data);
 
-setSeverity(
-  response.data.severity.toLowerCase()
-);
+      setImageAnalysis(
+        response.data
+      );
 
-setPriority(
-  response.data.priority.toLowerCase()
-);
+      setCategory(
+        response.data.category
+      );
 
-setConfidence(
-  response.data.confidence
-);
+      setSeverity(
+        response.data.severity.toLowerCase()
+      );
 
-if (
-  category &&
-  category.toLowerCase() ===
-  response.data.category.toLowerCase()
-) {
+      setPriority(
+        response.data.priority.toLowerCase()
+      );
 
-  setConsensus(
-    "🟢 High Confidence Match"
-  );
+      setConfidence(
+        response.data.confidence
+      );
 
-} else {
+      if (
+        category &&
+        category.toLowerCase() ===
+          response.data.category.toLowerCase()
+      ) {
+        setConsensus(
+          "🟢 High Confidence Match"
+        );
+      } else {
+        setConsensus(
+          "🟡 Manual Review Recommended"
+        );
+      }
 
-  setConsensus(
-    "🟡 Manual Review Recommended"
-  );
-}
+      setFinalCategory(
+        response.data.category
+      );
 
-setFinalCategory(
-  response.data.category
-);
-
-alert(
+      alert(
 `📷 Gemini Vision Analysis
 
 Category:
@@ -177,91 +219,114 @@ ${response.data.confidence}%
 
 Description:
 ${response.data.description}`
-);
-
-  } catch (error) {
-
-  console.error(error);
-
-  alert(
-    "Image Analysis Failed"
-  );
-
-} finally {
-
-  setAnalyzingImage(false);
-
-}
-};
-
-const submitComplaint = async () => {
-
-  const token =
-    localStorage.getItem("token");
-
-  if (!token) {
-
-    alert(
-      "Please login to submit a complaint."
-    );
-
-    router.push("/login");
-
-    return;
-  }
-
-  try {
-
-    setSubmitting(true);
-
-    let image_url = "";
-
-    if (image) {
-      const formData =
-        new FormData();
-
-      formData.append(
-        "file",
-        image
       );
 
-      const uploadResponse =
-        await axios.post(
-          "http://127.0.0.1:8000/upload/",
-          formData
-        );
+    } catch (error) {
+      console.error(error);
 
-      image_url =
-        uploadResponse.data.image_url;
-    }
-
-    const response =
-      await axios.post(
-        "http://127.0.0.1:8000/complaints/",
-        {
-          title,
-          description,
-          category,
-          latitude:
-            Number(latitude),
-          longitude:
-            Number(longitude),
-          image_url,
-        },
-        {
-          headers: {
-            Authorization:
-              `Bearer ${token}`,
-          },
-        }
-      );
-
-    if (
-      response.data.message ===
-      "Similar complaint already exists"
-    ) {
+      if (
+        axios.isAxiosError(error) &&
+        error.response?.status === 401
+      ) {
+        localStorage.removeItem("token");
+        router.replace("/login");
+        return;
+      }
 
       alert(
+        "Image Analysis Failed"
+      );
+
+    } finally {
+      setAnalyzingImage(false);
+    }
+  };
+
+
+  // ==========================================================
+  // SUBMIT COMPLAINT
+  // ==========================================================
+
+  const submitComplaint = async () => {
+    const token =
+      localStorage.getItem("token");
+
+    if (!token) {
+      alert(
+        "Please login to submit a complaint."
+      );
+
+      router.replace("/login");
+
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      let image_url = "";
+
+      // ------------------------------------------------------
+      // IMAGE UPLOAD
+      // ------------------------------------------------------
+
+      if (image) {
+        const formData =
+          new FormData();
+
+        formData.append(
+          "file",
+          image
+        );
+
+        const uploadResponse =
+          await axios.post(
+            apiUrl("/upload/"),
+            formData,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        image_url =
+          uploadResponse.data.image_url;
+      }
+
+      // ------------------------------------------------------
+      // CREATE COMPLAINT
+      // ------------------------------------------------------
+
+      const response =
+        await axios.post(
+          apiUrl("/complaints/"),
+          {
+            title,
+            description,
+            category,
+            latitude: Number(latitude),
+            longitude: Number(longitude),
+            image_url,
+          },
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
+      // ------------------------------------------------------
+      // DUPLICATE DETECTION
+      // ------------------------------------------------------
+
+      if (
+        response.data.message ===
+        "Similar complaint already exists"
+      ) {
+        alert(
 `⚠ Duplicate Complaint Found
 
 Complaint ID:
@@ -275,99 +340,147 @@ ${response.data.similarity_score}%
 
 Status:
 ${response.data.status}`
+        );
+
+        return;
+      }
+
+      // ------------------------------------------------------
+      // SUCCESS
+      // ------------------------------------------------------
+
+      alert(
+        "✅ Complaint Created Successfully!"
       );
 
-      return;
+      setTitle("");
+      setDescription("");
+      setCategory("");
+      setSeverity("medium");
+      setPriority("medium");
+      setLatitude("");
+      setLongitude("");
+      setImage(null);
+      setImageAnalysis(null);
+      setConfidence(null);
+      setFinalCategory("");
+      setConsensus("");
+
+    } catch (error) {
+      console.error(error);
+
+      if (
+        axios.isAxiosError(error) &&
+        error.response?.status === 401
+      ) {
+        localStorage.removeItem("token");
+
+        router.replace("/login");
+
+        return;
+      }
+
+      alert(
+        "Failed to create complaint"
+      );
+
+    } finally {
+      setSubmitting(false);
     }
+  };
 
-    alert(
-      "✅ Complaint Created Successfully!"
+
+  // ==========================================================
+  // WAIT FOR AUTH CHECK
+  // ==========================================================
+
+  if (!authorized) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 flex items-center justify-center text-white">
+
+        <div className="text-center">
+
+          <div className="text-4xl mb-4">
+            🔐
+          </div>
+
+          <p className="text-slate-400">
+            Checking authentication...
+          </p>
+
+        </div>
+
+      </main>
     );
-
-    setTitle("");
-    setDescription("");
-    setCategory("");
-    setSeverity("medium");
-    setPriority("medium");
-    setLatitude("");
-    setLongitude("");
-    setImage(null);
-
-  } catch (error) {
-
-    console.error(error);
-
-    alert(
-      "Failed to create complaint"
-    );
-
-  } finally {
-
-    setSubmitting(false);
-
   }
-};
+
+
+  // ==========================================================
+  // PAGE
+  // ==========================================================
 
   return (
     <>
       <Navbar />
 
       <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white p-10">
+
         <div className="mb-10">
 
-  <h1 className="text-5xl font-bold mb-3">
-    📝 Report Civic Issue
-  </h1>
+          <h1 className="text-5xl font-bold mb-3">
+            📝 Report Civic Issue
+          </h1>
 
-  <p className="text-slate-400">
-    Submit complaints and let AI assist
-    with categorization, severity analysis
-    and risk assessment.
-  </p>
+          <p className="text-slate-400">
+            Submit complaints and let AI assist
+            with categorization, severity analysis
+            and risk assessment.
+          </p>
 
-</div>
+        </div>
+
 
         <div
-  className="
-  max-w-6xl mx-auto
-  bg-white/5
-  backdrop-blur-xl
-  border border-white/10
-  rounded-3xl
-  p-8
-  shadow-2xl
-  space-y-6
-"
->
+          className="
+            max-w-6xl mx-auto
+            bg-white/5
+            backdrop-blur-xl
+            border border-white/10
+            rounded-3xl
+            p-8
+            shadow-2xl
+            space-y-6
+          "
+        >
+
           <input
             className="
-w-full
-bg-white/5
-border border-white/10
-rounded-xl
-p-4
-text-white
-placeholder:text-slate-400
-"
+              w-full
+              bg-white/5
+              border border-white/10
+              rounded-xl
+              p-4
+              text-white
+              placeholder:text-slate-400
+            "
             placeholder="Title"
             value={title}
             onChange={(e) =>
-              setTitle(
-                e.target.value
-              )
+              setTitle(e.target.value)
             }
           />
 
+
           <textarea
             className="
-w-full
-bg-white/5
-border border-white/10
-rounded-xl
-p-4
-text-white
-placeholder:text-slate-400
-"
+              w-full
+              bg-white/5
+              border border-white/10
+              rounded-xl
+              p-4
+              text-white
+              placeholder:text-slate-400
+            "
             placeholder="Description"
             value={description}
             onChange={(e) =>
@@ -377,8 +490,17 @@ placeholder:text-slate-400
             }
           />
 
+
           <input
-            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white placeholder:text-slate-400"
+            className="
+              w-full
+              bg-white/5
+              border border-white/10
+              rounded-xl
+              p-4
+              text-white
+              placeholder:text-slate-400
+            "
             placeholder="Category"
             value={category || ""}
             onChange={(e) =>
@@ -388,31 +510,40 @@ placeholder:text-slate-400
             }
           />
 
-          {/* AI Analysis Card */}
 
-          <div className="bg-blue-500/10 border border-blue-500/20 backdrop-blur-xl rounded-2xl p-5 p-4 rounded">
+          {/* AI ANALYSIS */}
+
+          <div
+            className="
+              bg-blue-500/10
+              border border-blue-500/20
+              backdrop-blur-xl
+              rounded-2xl
+              p-5
+            "
+          >
+
             <h3 className="font-bold text-lg mb-3">
               🤖 AI Analysis
             </h3>
 
             <div className="space-y-2">
+
               <p>
-  <strong>
-    Category:
-  </strong>{" "}
-  {category}
-</p>
+                <strong>
+                  Category:
+                </strong>{" "}
+                {category}
+              </p>
 
-{confidence && (
-
-  <p>
-    <strong>
-      Confidence:
-    </strong>{" "}
-    {confidence}%
-  </p>
-
-)}
+              {confidence !== null && (
+                <p>
+                  <strong>
+                    Confidence:
+                  </strong>{" "}
+                  {confidence}%
+                </p>
+              )}
 
               <p>
                 <strong>
@@ -431,69 +562,91 @@ placeholder:text-slate-400
                   {priority}
                 </span>
               </p>
+
             </div>
+
           </div>
+
+
+          {/* IMAGE ANALYSIS */}
+
           {imageAnalysis && (
-  <div className="bg-green-500/10
-border border-green-500/20
-backdrop-blur-xl
-rounded-2xl
-p-5 p-4 rounded">
+            <div
+              className="
+                bg-green-500/10
+                border border-green-500/20
+                backdrop-blur-xl
+                rounded-2xl
+                p-5
+              "
+            >
 
-    <h3 className="font-bold text-lg mb-3">
-      📷 AI Image Analysis
-    </h3>
+              <h3 className="font-bold text-lg mb-3">
+                📷 AI Image Analysis
+              </h3>
 
-    <p>
-      <strong>
-        Detected:
-      </strong>{" "}
-      {imageAnalysis.label}
-    </p>
+              <p>
+                <strong>
+                  Detected:
+                </strong>{" "}
+                {imageAnalysis.label}
+              </p>
 
-    <p>
-      <strong>
-        Suggested Category:
-      </strong>{" "}
-      {imageAnalysis.category}
-    </p>
+              <p>
+                <strong>
+                  Suggested Category:
+                </strong>{" "}
+                {imageAnalysis.category}
+              </p>
 
-    <p>
-      <strong>
-        Confidence:
-      </strong>{" "}
-      {imageAnalysis.confidence}%
-    </p>
+              <p>
+                <strong>
+                  Confidence:
+                </strong>{" "}
+                {imageAnalysis.confidence}%
+              </p>
 
-  </div>
-)}
-{finalCategory && (
-  <div className="bg-purple-500/10
-border border-purple-500/20
-backdrop-blur-xl
-rounded-2xl
-p-5 p-4 rounded">
+            </div>
+          )}
 
-    <h3 className="font-bold text-lg mb-3">
-      🧠 AI Verification Result
-    </h3>
 
-    <p>
-      <strong>
-        Final Category:
-      </strong>{" "}
-      {finalCategory}
-    </p>
+          {/* VERIFICATION */}
 
-    <p>
-      <strong>
-        Verification:
-      </strong>{" "}
-      {consensus}
-    </p>
+          {finalCategory && (
+            <div
+              className="
+                bg-purple-500/10
+                border border-purple-500/20
+                backdrop-blur-xl
+                rounded-2xl
+                p-5
+              "
+            >
 
-  </div>
-)}
+              <h3 className="font-bold text-lg mb-3">
+                🧠 AI Verification Result
+              </h3>
+
+              <p>
+                <strong>
+                  Final Category:
+                </strong>{" "}
+                {finalCategory}
+              </p>
+
+              <p>
+                <strong>
+                  Verification:
+                </strong>{" "}
+                {consensus}
+              </p>
+
+            </div>
+          )}
+
+
+          {/* LOCATION */}
+
           <input
             className="w-full border p-3 rounded"
             placeholder="Latitude"
@@ -527,7 +680,11 @@ p-5 p-4 rounded">
             }}
           />
 
+
+          {/* IMAGE UPLOAD */}
+
           <div>
+
             <label className="block mb-2 font-medium">
               Upload Image
             </label>
@@ -543,166 +700,163 @@ p-5 p-4 rounded">
               }
               className="w-full border p-3 rounded"
             />
+
           </div>
+
+
+          {/* BUTTONS */}
 
           <div className="flex gap-4 flex-wrap">
 
-  <button
-    onClick={analyzeWithAI}
-    className="
-      bg-blue-600
-      hover:bg-blue-700
-      transition-all
-      rounded-xl
-      font-semibold
-      text-white
-      px-6
-      py-3
-    "
-  >
-    🤖 Analyze with AI
-  </button>
+            <button
+              onClick={analyzeWithAI}
+              className="
+                bg-blue-600
+                hover:bg-blue-700
+                transition-all
+                rounded-xl
+                font-semibold
+                text-white
+                px-6
+                py-3
+              "
+            >
+              🤖 Analyze with AI
+            </button>
 
-  <button
-    onClick={analyzeImage}
-    disabled={analyzingImage}
-    className="
-      bg-green-600
-      hover:bg-green-700
-      disabled:bg-gray-500
-      disabled:cursor-not-allowed
-      transition-all
-      rounded-xl
-      font-semibold
-      text-white
-      px-6
-      py-3
-    "
-  >
-    {
-      analyzingImage
-        ? "🔄 Analyzing..."
-        : "📷 Analyze Image"
-    }
-  </button>
 
-  <button
-    onClick={submitComplaint}
-    disabled={submitting}
-    className="
-      bg-indigo-600
-      hover:bg-indigo-700
-      disabled:bg-gray-500
-      disabled:cursor-not-allowed
-      transition-all
-      rounded-xl
-      font-semibold
-      text-white
-      px-6
-      py-3
-    "
-  >
-    {
-      submitting
-        ? "⏳ Submitting..."
-        : "Submit Complaint"
-    }
-  </button>
+            <button
+              onClick={analyzeImage}
+              disabled={analyzingImage}
+              className="
+                bg-green-600
+                hover:bg-green-700
+                disabled:bg-gray-500
+                disabled:cursor-not-allowed
+                transition-all
+                rounded-xl
+                font-semibold
+                text-white
+                px-6
+                py-3
+              "
+            >
+              {analyzingImage
+                ? "🔄 Analyzing..."
+                : "📷 Analyze Image"}
+            </button>
 
-</div>
 
-{/* Image Analysis Loader */}
+            <button
+              onClick={submitComplaint}
+              disabled={submitting}
+              className="
+                bg-indigo-600
+                hover:bg-indigo-700
+                disabled:bg-gray-500
+                disabled:cursor-not-allowed
+                transition-all
+                rounded-xl
+                font-semibold
+                text-white
+                px-6
+                py-3
+              "
+            >
+              {submitting
+                ? "⏳ Submitting..."
+                : "Submit Complaint"}
+            </button>
 
-{
-  analyzingImage && (
+          </div>
 
-    <div
-      className="
-        mt-5
-        p-4
-        rounded-xl
-        bg-blue-50
-        border
-        border-blue-200
-        flex
-        items-center
-        gap-3
-      "
-    >
 
-      <div
-        className="
-          h-5
-          w-5
-          border-2
-          border-blue-500
-          border-t-transparent
-          rounded-full
-          animate-spin
-        "
-      />
+          {/* IMAGE ANALYSIS LOADER */}
 
-      <span
-        className="
-          text-blue-700
-          font-medium
-        "
-      >
-        🤖 Gemini Vision is analyzing your image...
-      </span>
+          {analyzingImage && (
+            <div
+              className="
+                mt-5
+                p-4
+                rounded-xl
+                bg-blue-50
+                border
+                border-blue-200
+                flex
+                items-center
+                gap-3
+              "
+            >
 
-    </div>
+              <div
+                className="
+                  h-5
+                  w-5
+                  border-2
+                  border-blue-500
+                  border-t-transparent
+                  rounded-full
+                  animate-spin
+                "
+              />
 
-  )
-}
+              <span
+                className="
+                  text-blue-700
+                  font-medium
+                "
+              >
+                🤖 Gemini Vision is analyzing your image...
+              </span>
 
-{/* Complaint Submission Loader */}
+            </div>
+          )}
 
-{
-  submitting && (
 
-    <div
-      className="
-        mt-5
-        p-4
-        rounded-xl
-        bg-indigo-50
-        border
-        border-indigo-200
-        flex
-        items-center
-        gap-3
-      "
-    >
+          {/* SUBMISSION LOADER */}
 
-      <div
-        className="
-          h-5
-          w-5
-          border-2
-          border-indigo-500
-          border-t-transparent
-          rounded-full
-          animate-spin
-        "
-      />
+          {submitting && (
+            <div
+              className="
+                mt-5
+                p-4
+                rounded-xl
+                bg-indigo-50
+                border
+                border-indigo-200
+                flex
+                items-center
+                gap-3
+              "
+            >
 
-      <span
-        className="
-          text-indigo-700
-          font-medium
-        "
-      >
-        📤 Uploading image and processing complaint...
-      </span>
+              <div
+                className="
+                  h-5
+                  w-5
+                  border-2
+                  border-indigo-500
+                  border-t-transparent
+                  rounded-full
+                  animate-spin
+                "
+              />
 
-    </div>
+              <span
+                className="
+                  text-indigo-700
+                  font-medium
+                "
+              >
+                📤 Uploading image and processing complaint...
+              </span>
 
-  )
-}
+            </div>
+          )}
+
         </div>
+
       </main>
     </>
   );
 }
-  

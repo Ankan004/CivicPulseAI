@@ -1,41 +1,48 @@
-from fastapi import APIRouter
-from fastapi import Depends
-
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database.dependencies import get_db
-
 from app.models.complaint import Complaint
 
 
 router = APIRouter(
     prefix="/dashboard",
-    tags=["Dashboard"]
+    tags=["Dashboard"],
 )
 
 
 @router.get("/stats")
-def dashboard_stats(
-    db: Session = Depends(get_db)
+def get_stats(
+    db: Session = Depends(get_db),
 ):
+    """
+    Public dashboard statistics.
+    No login required.
+    """
 
-    total = db.query(Complaint).count()
-
-    pending = db.query(Complaint).filter(
-        Complaint.status == "pending"
-    ).count()
-
-    in_progress = db.query(Complaint).filter(
-        Complaint.status == "in_progress"
-    ).count()
-
-    resolved = db.query(Complaint).filter(
-        Complaint.status == "resolved"
-    ).count()
+    complaints = db.query(Complaint).all()
 
     return {
-        "total_complaints": total,
-        "pending": pending,
-        "in_progress": in_progress,
-        "resolved": resolved
+        "total_complaints": len(complaints),
+
+        "pending": sum(
+            1
+            for complaint in complaints
+            if complaint.status
+            and complaint.status.lower() == "pending"
+        ),
+
+        "in_progress": sum(
+            1
+            for complaint in complaints
+            if complaint.status
+            and complaint.status.lower() == "in_progress"
+        ),
+
+        "resolved": sum(
+            1
+            for complaint in complaints
+            if complaint.status
+            and complaint.status.lower() == "resolved"
+        ),
     }

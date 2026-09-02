@@ -1,12 +1,29 @@
 import os
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+)
+
+from fastapi.security import (
+    HTTPBearer,
+    HTTPAuthorizationCredentials,
+)
+
+from jose import jwt, JWTError
 
 from sqlalchemy.orm import Session
 
 from app.database.dependencies import get_db
 from app.models.complaint import Complaint
+from app.models.user import User
+from app.core.security import (
+    SECRET_KEY,
+    ALGORITHM,
+)
 
 
 load_dotenv()
@@ -19,13 +36,33 @@ load_dotenv()
 MODEL_NAME = "gemini-2.5-flash"
 
 
+# ============================================================
+# OPTIONAL AUTHENTICATION
+# ============================================================
+#
+# The Assistant remains publicly accessible.
+#
+# However, Gemini fallback requires authentication.
+#
+# auto_error=False means visitors can still use the
+# database-based Assistant responses.
+#
+
+security = HTTPBearer(
+    auto_error=False
+)
+
+
+# ============================================================
+# GEMINI CLIENT
+# ============================================================
+
 def get_gemini_client():
     """
-    Create Gemini client only when the Gemini fallback
-    is actually required.
+    Create Gemini client lazily.
 
-    This prevents Gemini initialization from blocking
-    FastAPI startup.
+    Gemini is initialized only when a question
+    actually requires the Gemini fallback.
     """
 
     from google import genai
@@ -35,6 +72,7 @@ def get_gemini_client():
     )
 
     if not api_key:
+
         raise RuntimeError(
             "GOOGLE_API_KEY environment variable is not configured."
         )
@@ -62,6 +100,12 @@ router = APIRouter(
 def assistant_summary(
     db: Session = Depends(get_db),
 ):
+    """
+    Public civic summary.
+
+    No authentication required.
+    """
+
     complaints = (
         db.query(Complaint)
         .all()
@@ -103,6 +147,76 @@ def assistant_summary(
 
 
 # ============================================================
+# OPTIONAL USER VALIDATION
+# ============================================================
+
+def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None,
+    db: Session,
+):
+    """
+    Validate a JWT if one was supplied.
+
+    Returns:
+        User object if authenticated.
+        None if no token was supplied.
+
+    Invalid tokens are rejected rather than silently
+    treating them as anonymous.
+    """
+
+    if credentials is None:
+        return None
+
+    token = credentials.credentials
+
+    try:
+
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[
+                ALGORITHM
+            ],
+        )
+
+        email = payload.get(
+            "sub"
+        )
+
+        if not email:
+
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid authentication token.",
+            )
+
+    except JWTError:
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication token.",
+        )
+
+    user = (
+        db.query(User)
+        .filter(
+            User.email == email
+        )
+        .first()
+    )
+
+    if not user:
+
+        raise HTTPException(
+            status_code=401,
+            detail="User not found.",
+        )
+
+    return user
+
+
+# ============================================================
 # AI ASSISTANT
 # ============================================================
 
@@ -110,18 +224,55 @@ def assistant_summary(
 def ask_assistant(
     data: dict,
     db: Session = Depends(get_db),
+    credentials: HTTPAuthorizationCredentials | None = Depends(
+        security
+    ),
 ):
-    question = (
-        data.get(
-            "question",
-            "",
-        )
-        .strip()
-        .lower()
-    )
+    """
+    CivicPulse AI Assistant.
+
+    Public:
+        - Database-based civic questions.
+
+    Authenticated:
+        - Database-based questions.
+        - Gemini fallback questions.
+
+    This protects Gemini API usage while keeping
+    basic civic exploration public.
+    """
 
     # ========================================================
-    # RECENT COMPLAINTS
+    # QUESTION VALIDATION
+    # ========================================================
+
+    question = data.get(
+        "question",
+        "",
+    )
+
+    if not isinstance(
+        question,
+        str,
+    ):
+
+        question = ""
+
+    question = question.strip()
+
+    if not question:
+
+        return {
+            "answer":
+                "Please enter a question about the civic complaints."
+        }
+
+
+    question_lower = question.lower()
+
+
+    # ========================================================
+    # LOAD RECENT COMPLAINTS
     # ========================================================
 
     complaints = (
@@ -133,44 +284,41 @@ def ask_assistant(
         .all()
     )
 
-    # ========================================================
-    # EMPTY QUESTION
-    # ========================================================
-
-    if not question:
-
-        return {
-            "answer":
-                "Please enter a question about the civic complaints."
-        }
 
     # ========================================================
     # TOTAL COMPLAINTS
     # ========================================================
 
-    if "total" in question:
+    if "total" in question_lower:
+
+        # Use the actual total instead of only
+        # counting the last 20 complaints.
+
+        total = (
+            db.query(Complaint)
+            .count()
+        )
 
         return {
             "answer":
-                f"There are {len(complaints)} complaints in the system."
+                f"There are {total} complaints in the system."
         }
+
 
     # ========================================================
     # HIGH PRIORITY
     # ========================================================
 
-    elif "high priority" in question:
+    if "high priority" in question_lower:
 
-        count = len(
-            [
-                c
-                for c in complaints
-                if (
-                    c.priority
-                    and c.priority.lower()
-                    == "high"
+        count = (
+            db.query(Complaint)
+            .filter(
+                Complaint.priority.ilike(
+                    "high"
                 )
-            ]
+            )
+            .count()
         )
 
         return {
@@ -178,22 +326,21 @@ def ask_assistant(
                 f"There are {count} high priority complaints."
         }
 
+
     # ========================================================
     # PENDING
     # ========================================================
 
-    elif "pending" in question:
+    if "pending" in question_lower:
 
-        count = len(
-            [
-                c
-                for c in complaints
-                if (
-                    c.status
-                    and c.status.lower()
-                    == "pending"
+        count = (
+            db.query(Complaint)
+            .filter(
+                Complaint.status.ilike(
+                    "pending"
                 )
-            ]
+            )
+            .count()
         )
 
         return {
@@ -201,13 +348,15 @@ def ask_assistant(
                 f"There are {count} pending complaints."
         }
 
+
     # ========================================================
     # MOST COMMON CATEGORY
     # ========================================================
 
-    elif (
-        "category" in question
-        or "most complaints" in question
+    if (
+        "category" in question_lower
+        or "most complaints"
+        in question_lower
     ):
 
         categories = {}
@@ -245,13 +394,15 @@ def ask_assistant(
                 f"with {categories[top_category]} complaints."
         }
 
+
     # ========================================================
     # HOTSPOT / RISK ANALYSIS
     # ========================================================
 
-    elif (
-        "risk" in question
-        or "hotspot" in question
+    if (
+        "risk" in question_lower
+        or "hotspot"
+        in question_lower
     ):
 
         hotspot_scores = {}
@@ -278,6 +429,7 @@ def ask_assistant(
                 and complaint.priority.lower()
                 == "high"
             ):
+
                 score += 3
 
             elif (
@@ -285,9 +437,11 @@ def ask_assistant(
                 and complaint.priority.lower()
                 == "medium"
             ):
+
                 score += 2
 
             else:
+
                 score += 1
 
             hotspot_scores[location] = (
@@ -317,22 +471,21 @@ def ask_assistant(
                 f"{hotspot_scores[hotspot]}."
         }
 
+
     # ========================================================
     # WATER
     # ========================================================
 
-    elif "water" in question:
+    if "water" in question_lower:
 
-        count = len(
-            [
-                c
-                for c in complaints
-                if (
-                    c.category
-                    and c.category.lower()
-                    == "water"
+        count = (
+            db.query(Complaint)
+            .filter(
+                Complaint.category.ilike(
+                    "water"
                 )
-            ]
+            )
+            .count()
         )
 
         return {
@@ -340,22 +493,21 @@ def ask_assistant(
                 f"There are {count} water complaints."
         }
 
+
     # ========================================================
     # ELECTRICITY
     # ========================================================
 
-    elif "electricity" in question:
+    if "electricity" in question_lower:
 
-        count = len(
-            [
-                c
-                for c in complaints
-                if (
-                    c.category
-                    and c.category.lower()
-                    == "electricity"
+        count = (
+            db.query(Complaint)
+            .filter(
+                Complaint.category.ilike(
+                    "electricity"
                 )
-            ]
+            )
+            .count()
         )
 
         return {
@@ -363,22 +515,21 @@ def ask_assistant(
                 f"There are {count} electricity complaints."
         }
 
+
     # ========================================================
     # WASTE
     # ========================================================
 
-    elif "waste" in question:
+    if "waste" in question_lower:
 
-        count = len(
-            [
-                c
-                for c in complaints
-                if (
-                    c.category
-                    and c.category.lower()
-                    == "waste"
+        count = (
+            db.query(Complaint)
+            .filter(
+                Complaint.category.ilike(
+                    "waste"
                 )
-            ]
+            )
+            .count()
         )
 
         return {
@@ -386,15 +537,18 @@ def ask_assistant(
                 f"There are {count} waste complaints."
         }
 
+
     # ========================================================
     # MUNICIPALITY RECOMMENDATIONS
     # ========================================================
 
-    elif (
-        "fix first" in question
-        or "recommendation" in question
+    if (
+        "fix first"
+        in question_lower
+        or "recommendation"
+        in question_lower
         or "what should be fixed first"
-        in question
+        in question_lower
     ):
 
         recommendations = []
@@ -412,6 +566,7 @@ def ask_assistant(
                 and complaint.priority.lower()
                 == "high"
             ):
+
                 impact_score += 40
 
             elif (
@@ -419,10 +574,13 @@ def ask_assistant(
                 and complaint.priority.lower()
                 == "medium"
             ):
+
                 impact_score += 20
 
             else:
+
                 impact_score += 10
+
 
             # ------------------------------------------------
             # Severity
@@ -433,6 +591,7 @@ def ask_assistant(
                 and complaint.severity.lower()
                 == "high"
             ):
+
                 impact_score += 40
 
             elif (
@@ -440,10 +599,13 @@ def ask_assistant(
                 and complaint.severity.lower()
                 == "medium"
             ):
+
                 impact_score += 20
 
             else:
+
                 impact_score += 10
+
 
             # ------------------------------------------------
             # Category criticality
@@ -464,6 +626,7 @@ def ask_assistant(
 
                 impact_score += 5
 
+
             # ------------------------------------------------
             # Location bonus
             # ------------------------------------------------
@@ -476,6 +639,7 @@ def ask_assistant(
             ):
 
                 impact_score += 10
+
 
             # ------------------------------------------------
             # Urgency
@@ -496,6 +660,7 @@ def ask_assistant(
             else:
 
                 urgency = "Low"
+
 
             recommendations.append(
                 {
@@ -519,13 +684,16 @@ def ask_assistant(
                 }
             )
 
+
         recommendations.sort(
             key=lambda x:
                 x["impact_score"],
             reverse=True,
         )
 
+
         top = recommendations[:3]
+
 
         if not top:
 
@@ -534,9 +702,11 @@ def ask_assistant(
                     "No complaints are available for recommendation analysis."
             }
 
+
         answer = (
             "🚨 Municipality Priority Recommendations\n\n"
         )
+
 
         for idx, item in enumerate(
             top,
@@ -552,19 +722,48 @@ def ask_assistant(
                 f"Urgency: {item['urgency']}\n\n"
             )
 
+
         return {
             "answer": answer
         }
 
+
     # ========================================================
     # GEMINI FALLBACK
     # ========================================================
+    #
+    # Everything above can be used publicly.
+    #
+    # Unknown/general questions require authentication
+    # before consuming Gemini.
+    #
 
-    summary = ""
+    current_user = get_optional_user(
+        credentials,
+        db,
+    )
+
+
+    if current_user is None:
+
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                "Please login to use "
+                "advanced AI Assistant analysis."
+            ),
+        )
+
+
+    # ========================================================
+    # BUILD COMPLAINT SUMMARY
+    # ========================================================
+
+    summary_parts = []
 
     for complaint in complaints:
 
-        summary += (
+        summary_parts.append(
             f"""
 Title: {complaint.title}
 Category: {complaint.category}
@@ -575,6 +774,16 @@ Latitude: {complaint.latitude}
 Longitude: {complaint.longitude}
 """
         )
+
+
+    summary = "\n".join(
+        summary_parts
+    )
+
+
+    # ========================================================
+    # GEMINI PROMPT
+    # ========================================================
 
     prompt = f"""
 You are CivicPulse AI,
@@ -606,11 +815,12 @@ Guidelines:
 Answer:
 """
 
-    try:
 
-        # ----------------------------------------------------
-        # Lazy Gemini initialization
-        # ----------------------------------------------------
+    # ========================================================
+    # GEMINI REQUEST
+    # ========================================================
+
+    try:
 
         client = get_gemini_client()
 
@@ -619,19 +829,34 @@ Answer:
             contents=prompt,
         )
 
+
+        answer = (
+            response.text
+            or "Gemini returned an empty response."
+        ).strip()
+
+
         return {
-            "answer":
-                response.text
+            "answer": answer
         }
 
+
     except Exception as e:
+
+        # Log detailed error server-side.
 
         print(
             "Gemini Assistant Error:",
             str(e),
         )
 
+
+        # Do NOT expose the actual exception,
+        # API details, quota information,
+        # or internal configuration to users.
+
         return {
             "answer":
-                f"Gemini Error: {str(e)}"
+                "The advanced AI Assistant is temporarily unavailable. "
+                "Please try again later."
         }

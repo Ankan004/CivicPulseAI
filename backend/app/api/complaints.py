@@ -1,8 +1,14 @@
 import csv
 from io import StringIO
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+)
+
 from fastapi.responses import StreamingResponse
+
 from sqlalchemy.orm import Session
 
 from app.models.complaint import Complaint
@@ -15,8 +21,14 @@ from app.schemas.complaint import (
 )
 
 from app.database.dependencies import get_db
-from app.core.dependencies import get_current_user
-from app.core.admin import admin_required
+
+from app.core.dependencies import (
+    get_current_user,
+)
+
+from app.core.admin import (
+    admin_required,
+)
 
 
 # ============================================================
@@ -33,80 +45,181 @@ router = APIRouter(
 # CREATE COMPLAINT
 # ============================================================
 
-@router.post("/")
+@router.post(
+    "/",
+    response_model=ComplaintResponse,
+)
 def create_complaint(
     complaint: ComplaintCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     """
     Create a civic complaint.
 
-    The trained ML models are loaded lazily only when a
-    complaint is submitted.
+    Authentication required.
 
     ML prediction:
         - category
         - severity
         - priority
-
-    This keeps the models out of FastAPI startup.
     """
 
     # ========================================================
-    # LAZY LOAD ML PREDICTION
+    # BASIC INPUT VALIDATION
     # ========================================================
 
-    from app.ml.predict import analyze_complaint
+    title = (
+        complaint.title
+        or ""
+    ).strip()
 
-    ai_result = analyze_complaint(
-        complaint.title,
-        complaint.description,
-    )
+    description = (
+        complaint.description
+        or ""
+    ).strip()
+
+
+    if not title:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Complaint title is required.",
+        )
+
+
+    if not description:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Complaint description is required.",
+        )
+
+
+    # ========================================================
+    # LAZY LOAD ML
+    # ========================================================
+
+    try:
+
+        from app.ml.predict import (
+            analyze_complaint
+        )
+
+    except Exception as exc:
+
+        print(
+            "ML model import error:",
+            str(exc),
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Complaint AI classification "
+                "is temporarily unavailable."
+            ),
+        )
+
+
+    # ========================================================
+    # ML PREDICTION
+    # ========================================================
+
+    try:
+
+        ai_result = analyze_complaint(
+            title,
+            description,
+        )
+
+    except Exception as exc:
+
+        print(
+            "Complaint ML error:",
+            str(exc),
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Complaint AI classification "
+                "failed temporarily."
+            ),
+        )
+
 
     # ========================================================
     # ML RESULTS
     # ========================================================
 
-    category = ai_result["category"]
+    category = ai_result.get(
+        "category",
+        "Other",
+    )
 
-    severity = ai_result["severity"]
+    severity = ai_result.get(
+        "severity",
+        "Medium",
+    )
 
-    priority = ai_result["priority"]
+    priority = ai_result.get(
+        "priority",
+        "Medium",
+    )
+
 
     # ========================================================
     # CREATE DATABASE OBJECT
     # ========================================================
 
     new_complaint = Complaint(
-        title=complaint.title,
-
-        description=complaint.description,
-
+        title=title,
+        description=description,
         category=category,
-
         severity=severity,
-
         priority=priority,
-
         latitude=complaint.latitude,
-
         longitude=complaint.longitude,
-
         image_url=complaint.image_url,
-
         user_id=current_user.id,
     )
+
 
     # ========================================================
     # SAVE
     # ========================================================
 
-    db.add(new_complaint)
+    try:
 
-    db.commit()
+        db.add(
+            new_complaint
+        )
 
-    db.refresh(new_complaint)
+        db.commit()
+
+        db.refresh(
+            new_complaint
+        )
+
+    except Exception as exc:
+
+        db.rollback()
+
+        print(
+            "Complaint database error:",
+            str(exc),
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to create complaint."
+            ),
+        )
+
 
     return new_complaint
 
@@ -122,6 +235,12 @@ def create_complaint(
 def get_complaints(
     db: Session = Depends(get_db),
 ):
+    """
+    Public endpoint.
+
+    Anyone can explore complaints.
+    """
+
     return (
         db.query(Complaint)
         .order_by(
@@ -135,15 +254,24 @@ def get_complaints(
 # GET MY COMPLAINTS
 # ============================================================
 
-@router.get("/my-complaints")
+@router.get(
+    "/my-complaints",
+    response_model=list[ComplaintResponse],
+)
 def my_complaints(
     db: Session = Depends(get_db),
-
     current_user: User = Depends(
         get_current_user
     ),
 ):
-    complaints = (
+    """
+    Authentication required.
+
+    Returns only complaints belonging to
+    the authenticated user.
+    """
+
+    return (
         db.query(Complaint)
         .filter(
             Complaint.user_id
@@ -155,20 +283,29 @@ def my_complaints(
         .all()
     )
 
-    return complaints
-
 
 # ============================================================
 # EXPORT CSV
 # ============================================================
 
 # IMPORTANT:
-# Keep this route before /{complaint_id}
+# This route must remain BEFORE /{complaint_id}
 
-@router.get("/export/csv")
+@router.get(
+    "/export/csv"
+)
 def export_csv(
     db: Session = Depends(get_db),
+    admin_user: User = Depends(
+        admin_required
+    ),
 ):
+    """
+    ADMIN ONLY.
+
+    Export all complaints as CSV.
+    """
+
     complaints = (
         db.query(Complaint)
         .order_by(
@@ -177,9 +314,13 @@ def export_csv(
         .all()
     )
 
+
     output = StringIO()
 
-    writer = csv.writer(output)
+    writer = csv.writer(
+        output
+    )
+
 
     writer.writerow(
         [
@@ -196,33 +337,27 @@ def export_csv(
         ]
     )
 
+
     for complaint in complaints:
 
         writer.writerow(
             [
                 complaint.id,
-
                 complaint.title,
-
                 complaint.description,
-
                 complaint.category,
-
                 complaint.severity,
-
                 complaint.priority,
-
                 complaint.status,
-
                 complaint.latitude,
-
                 complaint.longitude,
-
                 complaint.user_id,
             ]
         )
 
+
     output.seek(0)
+
 
     return StreamingResponse(
         iter(
@@ -231,7 +366,6 @@ def export_csv(
             ]
         ),
         media_type="text/csv",
-
         headers={
             "Content-Disposition":
                 "attachment; "
@@ -249,15 +383,18 @@ def export_csv(
 )
 def update_status(
     complaint_id: int,
-
     data: ComplaintStatusUpdate,
-
     db: Session = Depends(get_db),
-
-    admin_user=Depends(
+    admin_user: User = Depends(
         admin_required
     ),
 ):
+    """
+    ADMIN ONLY.
+
+    Change complaint status.
+    """
+
     complaint = (
         db.query(Complaint)
         .filter(
@@ -267,18 +404,44 @@ def update_status(
         .first()
     )
 
+
     if not complaint:
 
         raise HTTPException(
             status_code=404,
-            detail="Complaint not found",
+            detail="Complaint not found.",
         )
 
-    complaint.status = data.status
 
-    db.commit()
+    complaint.status = (
+        data.status
+    )
 
-    db.refresh(complaint)
+
+    try:
+
+        db.commit()
+
+        db.refresh(
+            complaint
+        )
+
+    except Exception as exc:
+
+        db.rollback()
+
+        print(
+            "Complaint status update error:",
+            str(exc),
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to update complaint status."
+            ),
+        )
+
 
     return complaint
 
@@ -288,13 +451,19 @@ def update_status(
 # ============================================================
 
 @router.get(
-    "/{complaint_id}"
+    "/{complaint_id}",
+    response_model=ComplaintResponse,
 )
 def get_complaint(
     complaint_id: int,
-
     db: Session = Depends(get_db),
 ):
+    """
+    Public endpoint.
+
+    Anyone can view a complaint.
+    """
+
     complaint = (
         db.query(Complaint)
         .filter(
@@ -304,11 +473,13 @@ def get_complaint(
         .first()
     )
 
+
     if not complaint:
 
         raise HTTPException(
             status_code=404,
-            detail="Complaint not found",
+            detail="Complaint not found.",
         )
+
 
     return complaint

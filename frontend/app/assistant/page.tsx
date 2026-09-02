@@ -1,83 +1,156 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
 import axios from "axios";
 import Navbar from "../../components/Navbar";
+import { apiUrl } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 
 export default function AssistantPage() {
+  const [data, setData] = useState<any>(null);
 
-  const [data, setData] =
-    useState<any>(null);
+  const [question, setQuestion] = useState("");
 
-  const [question, setQuestion] =
-    useState("");
+  const [answer, setAnswer] = useState("");
 
-  const [answer, setAnswer] =
-    useState("");
-  const [loading, setLoading] =
-     useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const [summaryLoading, setSummaryLoading] =
+    useState(true);
+
+  const [summaryError, setSummaryError] =
+    useState(false);
 
   useEffect(() => {
     loadSummary();
   }, []);
 
-  const loadSummary =
-    async () => {
+  // ============================================================
+  // LOAD PUBLIC ASSISTANT SUMMARY
+  // ============================================================
 
-      try {
+  const loadSummary = async () => {
+    try {
+      setSummaryLoading(true);
+      setSummaryError(false);
 
-        const response =
-          await axios.get(
-            "http://127.0.0.1:8000/assistant/summary"
-          );
-
-        setData(
-          response.data
-        );
-
-      } catch (error) {
-
-        console.error(error);
-
-      }
-    };
-
-  const askAI = async () => {
-
-  try {
-
-    setLoading(true);
-
-    setAnswer("");
-
-    const response =
-      await axios.post(
-        "http://127.0.0.1:8000/assistant/ask",
-        {
-          question
-        }
+      const response = await axios.get(
+        apiUrl("/assistant/summary")
       );
 
-    setAnswer(
-      response.data.answer
-    );
+      setData(response.data);
+    } catch (error) {
+      console.error(
+        "Failed to load assistant summary:",
+        error
+      );
 
-    setLoading(false);
+      setSummaryError(true);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
 
-  } catch (error) {
+  // ============================================================
+  // ASK AI ASSISTANT
+  // ============================================================
 
-    setLoading(false);
+  const askAI = async () => {
+    const trimmedQuestion =
+      question.trim();
 
-    console.error(error);
+    if (!trimmedQuestion) {
+      setAnswer(
+        "Please enter a question about the civic complaints."
+      );
+      return;
+    }
 
-    alert(
-      "Failed to get AI response"
-    );
+    try {
+      setLoading(true);
+      setAnswer("");
 
-  }
+      // --------------------------------------------------------
+      // Get JWT if user is logged in
+      // --------------------------------------------------------
 
-};
+      const token = getToken();
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (token) {
+        headers.Authorization =
+          `Bearer ${token}`;
+      }
+
+      // --------------------------------------------------------
+      // Ask Assistant
+      // --------------------------------------------------------
+
+      const response =
+        await axios.post(
+          apiUrl("/assistant/ask"),
+          {
+            question: trimmedQuestion,
+          },
+          {
+            headers,
+          }
+        );
+
+      setAnswer(
+        response.data?.answer ||
+          "The Assistant did not return a response."
+      );
+    } catch (error: any) {
+      console.error(
+        "Failed to get AI response:",
+        error
+      );
+
+      // --------------------------------------------------------
+      // Authentication required for Gemini fallback
+      // --------------------------------------------------------
+
+      if (
+        error?.response?.status === 401
+      ) {
+        setAnswer(
+          "🔐 Please login to use advanced AI Assistant analysis. Basic civic questions are available without login."
+        );
+      } else if (
+        error?.response?.status === 403
+      ) {
+        setAnswer(
+          "You do not have permission to use this AI feature."
+        );
+      } else {
+        setAnswer(
+          "⚠️ Failed to get AI response. Please try again later."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ============================================================
+  // ENTER KEY
+  // ============================================================
+
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (
+      e.key === "Enter" &&
+      !loading
+    ) {
+      askAI();
+    }
+  };
+
   return (
     <>
       <Navbar />
@@ -85,6 +158,10 @@ export default function AssistantPage() {
       <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white pt-28 px-10 pb-10">
 
         <div className="max-w-6xl mx-auto">
+
+          {/* ================================================= */}
+          {/* HEADER */}
+          {/* ================================================= */}
 
           <div className="mb-10">
 
@@ -100,9 +177,32 @@ export default function AssistantPage() {
 
           </div>
 
-          {data && (
+          {/* ================================================= */}
+          {/* SUMMARY */}
+          {/* ================================================= */}
 
-            <div className="grid md:grid-cols-3 gap-6 mb-8">
+          {summaryError ? (
+            <div className="
+              mb-8
+              rounded-2xl
+              border
+              border-red-500/30
+              bg-red-500/10
+              p-5
+              text-red-300
+            ">
+              ⚠️ Unable to load civic
+              summary data.
+            </div>
+          ) : (
+            <div className="
+              grid
+              md:grid-cols-3
+              gap-6
+              mb-8
+            ">
+
+              {/* TOTAL */}
 
               <div className="
                 bg-white/5
@@ -118,10 +218,14 @@ export default function AssistantPage() {
                 </h3>
 
                 <p className="text-4xl font-bold mt-3">
-                  {data.total_complaints}
+                  {summaryLoading
+                    ? "—"
+                    : data?.total_complaints ?? 0}
                 </p>
 
               </div>
+
+              {/* HIGH PRIORITY */}
 
               <div className="
                 bg-red-500/20
@@ -136,10 +240,14 @@ export default function AssistantPage() {
                 </h3>
 
                 <p className="text-4xl font-bold mt-3">
-                  {data.high_priority}
+                  {summaryLoading
+                    ? "—"
+                    : data?.high_priority ?? 0}
                 </p>
 
               </div>
+
+              {/* PENDING */}
 
               <div className="
                 bg-yellow-500/20
@@ -154,14 +262,19 @@ export default function AssistantPage() {
                 </h3>
 
                 <p className="text-4xl font-bold mt-3">
-                  {data.pending}
+                  {summaryLoading
+                    ? "—"
+                    : data?.pending ?? 0}
                 </p>
 
               </div>
 
             </div>
-
           )}
+
+          {/* ================================================= */}
+          {/* ASK AI */}
+          {/* ================================================= */}
 
           <div className="
             bg-white/5
@@ -185,6 +298,9 @@ export default function AssistantPage() {
                 p-4
                 text-white
                 placeholder:text-slate-400
+                outline-none
+                focus:border-blue-500
+                transition
               "
               placeholder="Ask something..."
               value={question}
@@ -193,14 +309,22 @@ export default function AssistantPage() {
                   e.target.value
                 )
               }
+              onKeyDown={handleKeyDown}
+              disabled={loading}
             />
 
             <button
               onClick={askAI}
+              disabled={
+                loading ||
+                !question.trim()
+              }
               className="
                 mt-4
                 bg-blue-600
                 hover:bg-blue-700
+                disabled:opacity-50
+                disabled:cursor-not-allowed
                 transition-all
                 px-6
                 py-3
@@ -208,24 +332,50 @@ export default function AssistantPage() {
                 font-semibold
               "
             >
-              🤖 Ask AI
+              {loading
+                ? "🤖 Analyzing..."
+                : "🤖 Ask AI"}
             </button>
+
+            {/* ================================================= */}
+            {/* LOADING */}
+            {/* ================================================= */}
+
             {loading && (
+              <div className="
+                mt-6
+                p-4
+                bg-blue-900/30
+                border border-blue-500
+                rounded-xl
+                text-blue-300
+                flex
+                items-center
+                gap-3
+              ">
 
-  <div className="mt-6 p-4 bg-blue-900/30 border border-blue-500 rounded-xl text-blue-300 flex items-center gap-3">
+                <div className="
+                  w-4
+                  h-4
+                  border-2
+                  border-blue-300
+                  border-t-transparent
+                  rounded-full
+                  animate-spin
+                " />
 
-  <div className="w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full animate-spin"></div>
+                <span>
+                  AI is analyzing complaint data...
+                </span>
 
-  <span>
-    AI is analyzing complaint data...
-  </span>
+              </div>
+            )}
 
-</div>
-
-)}
+            {/* ================================================= */}
+            {/* ANSWER */}
+            {/* ================================================= */}
 
             {answer && (
-
               <div className="
                 mt-6
                 bg-blue-500/10
@@ -247,10 +397,13 @@ export default function AssistantPage() {
                 </p>
 
               </div>
-
             )}
 
           </div>
+
+          {/* ================================================= */}
+          {/* SUGGESTED QUESTIONS */}
+          {/* ================================================= */}
 
           <div className="
             mt-8
@@ -383,8 +536,6 @@ export default function AssistantPage() {
         </div>
 
       </main>
-
     </>
   );
 }
-

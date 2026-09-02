@@ -2,87 +2,148 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 
-from jose import jwt
-from jose import JWTError
-
-from fastapi.security import HTTPBearer
-from fastapi.security import HTTPAuthorizationCredentials
-
 from sqlalchemy.orm import Session
 
 from app.models.user import User
 
 from app.database.dependencies import get_db
 
-from app.core.security import (
-    SECRET_KEY,
-    ALGORITHM
+from app.core.dependencies import (
+    get_current_user,
 )
+
+from app.core.admin import (
+    admin_required,
+)
+
+
+# ============================================================
+# ROUTER
+# ============================================================
 
 router = APIRouter(
     prefix="/users",
-    tags=["Users"]
+    tags=["Users"],
 )
 
-security = HTTPBearer()
 
+# ============================================================
+# GET CURRENT USER
+# ============================================================
 
 @router.get("/me")
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+def get_current_user_profile(
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
+    """
+    Return the currently authenticated user's
+    public profile information.
 
-    token = credentials.credentials
-
-    try:
-        payload = jwt.decode(
-            token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM]
-        )
-
-        email = payload.get("sub")
-
-    except JWTError:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid token"
-        )
-
-    user = db.query(User).filter(
-        User.email == email
-    ).first()
-
-    if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found"
-        )
+    Authentication required.
+    """
 
     return {
-        "id": user.id,
-        "name": user.name,
-        "email": user.email,
-        "role": user.role
+        "id":
+            current_user.id,
+
+        "name":
+            current_user.name,
+
+        "email":
+            current_user.email,
+
+        "role":
+            current_user.role,
     }
-@router.patch("/make-admin/{user_id}")
+
+
+# ============================================================
+# MAKE USER ADMIN
+# ============================================================
+
+@router.patch(
+    "/make-admin/{user_id}"
+)
 def make_admin(
     user_id: int,
-    db: Session = Depends(get_db)
-):
 
-    user = db.query(User).filter(
-        User.id == user_id
-    ).first()
+    db: Session = Depends(
+        get_db
+    ),
+
+    admin_user: User = Depends(
+        admin_required
+    ),
+):
+    """
+    Promote a user to administrator.
+
+    ADMIN ONLY.
+    """
+
+    user = (
+        db.query(User)
+        .filter(
+            User.id == user_id
+        )
+        .first()
+    )
+
+
+    # ========================================================
+    # USER NOT FOUND
+    # ========================================================
 
     if not user:
-        return {"message": "User not found"}
+
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+
+    # ========================================================
+    # ALREADY ADMIN
+    # ========================================================
+
+    if user.role == "admin":
+
+        return {
+            "message":
+                f"{user.name} is already an admin",
+
+            "user_id":
+                user.id,
+
+            "role":
+                user.role,
+        }
+
+
+    # ========================================================
+    # PROMOTE USER
+    # ========================================================
 
     user.role = "admin"
 
     db.commit()
 
+    db.refresh(user)
+
+
+    # ========================================================
+    # RESPONSE
+    # ========================================================
+
     return {
-        "message": f"{user.name} is now admin"
+        "message":
+            f"{user.name} is now admin",
+
+        "user_id":
+            user.id,
+
+        "role":
+            user.role,
     }

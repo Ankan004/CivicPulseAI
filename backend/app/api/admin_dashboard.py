@@ -1,74 +1,150 @@
 from fastapi import APIRouter
-from sqlalchemy.orm import Session
 from fastapi import Depends
+
+from sqlalchemy.orm import Session
 
 from app.database.dependencies import get_db
 from app.models.complaint import Complaint
+from app.models.user import User
+from app.core.admin import admin_required
+
+
+# ============================================================
+# ROUTER
+# ============================================================
 
 router = APIRouter(
     prefix="/admin-dashboard",
-    tags=["Admin Dashboard"]
+    tags=["Admin Dashboard"],
 )
+
+
+# ============================================================
+# ADMIN STATISTICS
+# ============================================================
 
 @router.get("/stats")
 def get_stats(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(
+        admin_required
+    ),
 ):
+    """
+    Get administrative complaint statistics.
 
-    complaints = db.query(
-        Complaint
-    ).all()
+    ADMIN ONLY.
+    """
+
+    complaints = (
+        db.query(Complaint)
+        .all()
+    )
+
+
+    # ========================================================
+    # TOTAL COMPLAINTS
+    # ========================================================
 
     total = len(
         complaints
     )
 
-    high_priority = len([
-        c for c in complaints
-        if c.priority
-        and c.priority.lower() == "high"
-    ])
 
-    road = len([
-        c for c in complaints
-        if c.category
-        and c.category.lower() == "road"
-    ])
+    # ========================================================
+    # HIGH PRIORITY
+    # ========================================================
 
-    water = len([
-        c for c in complaints
-        if c.category
-        and c.category.lower() == "water"
-    ])
+    high_priority = len(
+        [
+            complaint
+            for complaint in complaints
+            if (
+                complaint.priority
+                and complaint.priority.lower()
+                == "high"
+            )
+        ]
+    )
 
-    electricity = len([
-        c for c in complaints
-        if c.category
-        and c.category.lower() == "electricity"
-    ])
 
-    waste = len([
-        c for c in complaints
-        if c.category
-        and c.category.lower() == "waste"
-    ])
+    # ========================================================
+    # ROAD
+    # ========================================================
+
+    road = len(
+        [
+            complaint
+            for complaint in complaints
+            if (
+                complaint.category
+                and complaint.category.lower()
+                == "road"
+            )
+        ]
+    )
+
+
+    # ========================================================
+    # WATER
+    # ========================================================
+
+    water = len(
+        [
+            complaint
+            for complaint in complaints
+            if (
+                complaint.category
+                and complaint.category.lower()
+                == "water"
+            )
+        ]
+    )
+
+
+    # ========================================================
+    # ELECTRICITY
+    # ========================================================
+
+    electricity = len(
+        [
+            complaint
+            for complaint in complaints
+            if (
+                complaint.category
+                and complaint.category.lower()
+                == "electricity"
+            )
+        ]
+    )
+
+
+    # ========================================================
+    # WASTE
+    # ========================================================
+
+    waste = len(
+        [
+            complaint
+            for complaint in complaints
+            if (
+                complaint.category
+                and complaint.category.lower()
+                == "waste"
+            )
+        ]
+    )
+
+
+    # ========================================================
+    # RESPONSE
+    # ========================================================
 
     return {
-        "total_complaints":
-            total,
-
-        "high_priority":
-            high_priority,
-
-        "road":
-            road,
-
-        "water":
-            water,
-
-        "electricity":
-            electricity,
-
-        "waste":
-            waste
+        "total_complaints": total,
+        "high_priority": high_priority,
+        "road": road,
+        "water": water,
+        "electricity": electricity,
+        "waste": waste,
     }

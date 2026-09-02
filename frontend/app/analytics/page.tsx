@@ -16,6 +16,8 @@ import {
   CartesianGrid,
 } from "recharts";
 
+import { apiUrl } from "@/lib/api";
+
 const COLORS = [
   "#2563eb",
   "#16a34a",
@@ -28,25 +30,39 @@ export default function AnalyticsPage() {
   const [data, setData] =
     useState<any>(null);
 
+  const [error, setError] =
+    useState(false);
+
   useEffect(() => {
     fetchAnalytics();
   }, []);
 
-  const fetchAnalytics =
-    async () => {
-      try {
-        const response =
-          await axios.get(
-            "http://127.0.0.1:8000/analytics/summary"
-          );
+  const fetchAnalytics = async () => {
+    try {
+      const response = await axios.get(
+        apiUrl("/analytics/summary")
+      );
 
-        setData(
-          response.data
-        );
-      } catch (error) {
-        console.error(error);
-      }
-    };
+      setData(response.data);
+    } catch (error) {
+      console.error(error);
+      setError(true);
+    }
+  };
+
+  if (error) {
+    return (
+      <main className="p-10 bg-gray-50 min-h-screen">
+        <h1 className="text-4xl font-bold mb-4">
+          📊 Civic Analytics Dashboard
+        </h1>
+
+        <p className="text-red-600">
+          Unable to load analytics data.
+        </p>
+      </main>
+    );
+  }
 
   if (!data) {
     return (
@@ -57,9 +73,7 @@ export default function AnalyticsPage() {
   }
 
   const categoryData =
-    Object.entries(
-      data.categories
-    ).map(
+    Object.entries(data.categories || {}).map(
       ([name, count]) => ({
         name,
         count,
@@ -75,6 +89,7 @@ export default function AnalyticsPage() {
       {/* Stats Cards */}
 
       <div className="grid md:grid-cols-4 gap-6 mb-10">
+
         <Card
           title="Total Complaints"
           value={data.total}
@@ -92,18 +107,19 @@ export default function AnalyticsPage() {
 
         <Card
           title="High Priority"
-          value={
-            data.high_priority
-          }
+          value={data.high_priority}
         />
+
       </div>
 
       {/* Charts */}
 
       <div className="grid md:grid-cols-2 gap-8">
+
         {/* Pie Chart */}
 
         <div className="bg-white p-6 rounded shadow">
+
           <h2 className="text-2xl font-bold mb-4">
             🥧 Category Distribution
           </h2>
@@ -113,6 +129,7 @@ export default function AnalyticsPage() {
             height={350}
           >
             <PieChart>
+
               <Pie
                 data={categoryData}
                 dataKey="count"
@@ -120,11 +137,9 @@ export default function AnalyticsPage() {
                 outerRadius={120}
                 label
               >
+
                 {categoryData.map(
-                  (
-                    entry,
-                    index
-                  ) => (
+                  (entry, index) => (
                     <Cell
                       key={index}
                       fill={
@@ -136,16 +151,20 @@ export default function AnalyticsPage() {
                     />
                   )
                 )}
+
               </Pie>
 
               <Tooltip />
+
             </PieChart>
           </ResponsiveContainer>
+
         </div>
 
         {/* Bar Chart */}
 
         <div className="bg-white p-6 rounded shadow">
+
           <h2 className="text-2xl font-bold mb-4">
             📈 Complaint Categories
           </h2>
@@ -155,11 +174,12 @@ export default function AnalyticsPage() {
             height={350}
           >
             <BarChart
-              data={
-                categoryData
-              }
+              data={categoryData}
             >
-              <CartesianGrid strokeDasharray="3 3" />
+
+              <CartesianGrid
+                strokeDasharray="3 3"
+              />
 
               <XAxis dataKey="name" />
 
@@ -171,9 +191,12 @@ export default function AnalyticsPage() {
                 dataKey="count"
                 fill="#2563eb"
               />
+
             </BarChart>
           </ResponsiveContainer>
+
         </div>
+
       </div>
     </main>
   );
@@ -188,6 +211,7 @@ function Card({
 }) {
   return (
     <div className="bg-white rounded shadow p-6">
+
       <h3 className="text-gray-500 mb-2">
         {title}
       </h3>
@@ -195,6 +219,7 @@ function Card({
       <p className="text-4xl font-bold">
         {value}
       </p>
+
     </div>
   );
 }

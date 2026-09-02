@@ -3,9 +3,19 @@ import json
 import os
 import time
 
-from fastapi import APIRouter, UploadFile, File
+from fastapi import (
+    APIRouter,
+    UploadFile,
+    File,
+    Depends,
+    HTTPException,
+)
+
 from PIL import Image
 from dotenv import load_dotenv
+
+from app.models.user import User
+from app.core.dependencies import get_current_user
 
 
 load_dotenv()
@@ -18,18 +28,55 @@ router = APIRouter(
 
 
 # ============================================================
-# GEMINI CONFIGURATION
+# CONFIGURATION
 # ============================================================
 
 MODEL_NAME = "gemini-2.5-flash"
 
+MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+ALLOWED_CONTENT_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+}
+
+
+ALLOWED_CATEGORIES = {
+    "Road",
+    "Water",
+    "Waste",
+    "Electricity",
+    "Drainage",
+    "Streetlight",
+    "Other",
+}
+
+
+ALLOWED_SEVERITIES = {
+    "Low",
+    "Medium",
+    "High",
+}
+
+
+ALLOWED_PRIORITIES = {
+    "Low",
+    "Medium",
+    "High",
+}
+
+
+# ============================================================
+# GEMINI CLIENT
+# ============================================================
 
 def get_gemini_client():
     """
-    Create the Gemini client only when Vision is actually used.
+    Create the Gemini client lazily.
 
-    This prevents Gemini initialization from blocking FastAPI
-    startup.
+    Gemini is initialized only when Vision is actually used.
     """
 
     from google import genai
@@ -49,37 +96,102 @@ def get_gemini_client():
 
 
 # ============================================================
+# FALLBACK RESPONSE
+# ============================================================
+
+def vision_error_response(
+    message: str,
+    description: str = "Vision analysis unavailable.",
+):
+    return {
+        "error": True,
+        "message": message,
+        "category": "Other",
+        "severity": "Medium",
+        "priority": "Medium",
+        "confidence": 0,
+        "description": description,
+    }
+
+
+# ============================================================
 # VISION ANALYSIS
 # ============================================================
 
 @router.post("/analyze-image")
 async def analyze_image(
     image: UploadFile = File(...),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
+    """
+    Analyze a civic complaint image using Gemini Vision.
+
+    Authentication required.
+
+    Allowed:
+        - Citizen
+        - Admin
+
+    Not allowed:
+        - Unauthenticated visitors
+    """
+
+    start = time.time()
+
     try:
 
-        start = time.time()
+        # ====================================================
+        # FILE VALIDATION
+        # ====================================================
 
-        # ----------------------------------------------------
-        # Read uploaded image
-        # ----------------------------------------------------
+        if not image.filename:
+            raise HTTPException(
+                status_code=400,
+                detail="Image filename is required.",
+            )
 
-        contents = await image.read()
+
+        if (
+            image.content_type
+            not in ALLOWED_CONTENT_TYPES
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Unsupported image type. "
+                    "Allowed types: JPEG, PNG, WebP."
+                ),
+            )
+
+
+        # ====================================================
+        # READ IMAGE WITH SIZE LIMIT
+        # ====================================================
+
+        contents = await image.read(
+            MAX_IMAGE_SIZE + 1
+        )
+
 
         if not contents:
-            return {
-                "error": True,
-                "message": "Uploaded image is empty.",
-                "category": "Other",
-                "severity": "Medium",
-                "priority": "Medium",
-                "confidence": 0,
-                "description": "No image data was provided.",
-            }
+            raise HTTPException(
+                status_code=400,
+                detail="Uploaded image is empty.",
+            )
 
-        # ----------------------------------------------------
-        # Open image
-        # ----------------------------------------------------
+
+        if len(contents) > MAX_IMAGE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail="Image size must not exceed 5 MB.",
+            )
+
+
+        # ====================================================
+        # OPEN IMAGE
+        # ====================================================
 
         try:
 
@@ -87,31 +199,29 @@ async def analyze_image(
                 io.BytesIO(contents)
             )
 
-            # Force image loading so invalid/corrupt images
-            # are detected before sending to Gemini.
+            # Force image loading so corrupt images
+            # are detected before sending them to Gemini.
+
             pil_image.load()
 
         except Exception:
 
-            return {
-                "error": True,
-                "message": "Invalid or unsupported image.",
-                "category": "Other",
-                "severity": "Medium",
-                "priority": "Medium",
-                "confidence": 0,
-                "description": "The uploaded file could not be read as an image.",
-            }
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid or unsupported image.",
+            )
 
-        # ----------------------------------------------------
-        # Gemini client
-        # ----------------------------------------------------
+
+        # ====================================================
+        # GEMINI CLIENT
+        # ====================================================
 
         client = get_gemini_client()
 
-        # ----------------------------------------------------
-        # Prompt
-        # ----------------------------------------------------
+
+        # ====================================================
+        # PROMPT
+        # ====================================================
 
         prompt = """
 Analyze this civic complaint image.
@@ -139,16 +249,19 @@ Streetlight
 Other
 
 Severity values:
+
 Low
 Medium
 High
 
 Priority values:
+
 Low
 Medium
 High
 
 Rules:
+
 - Return raw JSON only.
 - Do not use markdown.
 - Do not use ```json.
@@ -156,9 +269,10 @@ Rules:
 - The description should briefly explain the civic issue visible in the image.
 """
 
-        # ----------------------------------------------------
-        # Gemini Vision request
-        # ----------------------------------------------------
+
+        # ====================================================
+        # GEMINI REQUEST
+        # ====================================================
 
         from google.genai import types
 
@@ -173,6 +287,7 @@ Rules:
             ),
         )
 
+
         elapsed = (
             time.time() - start
         )
@@ -181,31 +296,32 @@ Rules:
             f"Gemini Vision Time: {elapsed:.2f}s"
         )
 
-        # ----------------------------------------------------
-        # Response validation
-        # ----------------------------------------------------
+
+        # ====================================================
+        # RESPONSE TEXT
+        # ====================================================
 
         text = (
             response.text or ""
         ).strip()
 
+
         if not text:
 
-            return {
-                "error": True,
-                "message": "Gemini returned an empty response.",
-                "category": "Other",
-                "severity": "Medium",
-                "priority": "Medium",
-                "confidence": 0,
-                "description": "Vision analysis returned no result.",
-            }
+            return vision_error_response(
+                "Gemini returned an empty response.",
+                "Vision analysis returned no result.",
+            )
 
-        # Remove accidental markdown fences.
+
+        # ====================================================
+        # REMOVE MARKDOWN FENCES
+        # ====================================================
 
         if text.startswith(
             "```json"
         ):
+
             text = text[
                 len("```json"):
             ]
@@ -213,57 +329,92 @@ Rules:
         elif text.startswith(
             "```"
         ):
+
             text = text[
                 len("```"):
             ]
 
+
         if text.endswith(
             "```"
         ):
+
             text = text[
                 :-3
             ]
 
+
         text = text.strip()
 
-        # ----------------------------------------------------
-        # Parse JSON
-        # ----------------------------------------------------
 
-        result = json.loads(
-            text
-        )
+        # ====================================================
+        # PARSE JSON
+        # ====================================================
 
-        # ----------------------------------------------------
-        # Normalize result
-        # ----------------------------------------------------
+        try:
+
+            result = json.loads(
+                text
+            )
+
+        except json.JSONDecodeError:
+
+            return vision_error_response(
+                "Gemini returned an invalid response.",
+                "Vision analysis could not be parsed.",
+            )
+
+
+        # ====================================================
+        # NORMALIZE CATEGORY
+        # ====================================================
 
         category = result.get(
             "category",
             "Other",
         )
 
+        if category not in ALLOWED_CATEGORIES:
+
+            category = "Other"
+
+
+        # ====================================================
+        # NORMALIZE SEVERITY
+        # ====================================================
+
         severity = result.get(
             "severity",
             "Medium",
         )
+
+        if severity not in ALLOWED_SEVERITIES:
+
+            severity = "Medium"
+
+
+        # ====================================================
+        # NORMALIZE PRIORITY
+        # ====================================================
 
         priority = result.get(
             "priority",
             "Medium",
         )
 
+        if priority not in ALLOWED_PRIORITIES:
+
+            priority = "Medium"
+
+
+        # ====================================================
+        # NORMALIZE CONFIDENCE
+        # ====================================================
+
         confidence = result.get(
             "confidence",
             0,
         )
-
-        description = result.get(
-            "description",
-            "Vision analysis completed.",
-        )
-
-        # Keep confidence within 0-100.
 
         try:
 
@@ -291,6 +442,38 @@ Rules:
 
             confidence = 0
 
+
+        # ====================================================
+        # DESCRIPTION
+        # ====================================================
+
+        description = result.get(
+            "description",
+            "Vision analysis completed.",
+        )
+
+
+        if not isinstance(
+            description,
+            str,
+        ):
+
+            description = (
+                "Vision analysis completed."
+            )
+
+
+        # Prevent unnecessarily huge model output.
+
+        description = description[
+            :1000
+        ]
+
+
+        # ====================================================
+        # SUCCESS
+        # ====================================================
+
         return {
             "category": category,
             "severity": severity,
@@ -298,6 +481,19 @@ Rules:
             "confidence": confidence,
             "description": description,
         }
+
+
+    # ========================================================
+    # HTTP ERRORS
+    # ========================================================
+
+    except HTTPException:
+        raise
+
+
+    # ========================================================
+    # GENERAL ERRORS
+    # ========================================================
 
     except Exception as e:
 
@@ -308,41 +504,30 @@ Rules:
             error,
         )
 
+
         # ----------------------------------------------------
-        # Gemini quota
+        # GEMINI QUOTA
         # ----------------------------------------------------
 
         if (
             "429" in error
-            or "quota" in error.lower()
+            or "quota"
+            in error.lower()
             or "resource exhausted"
             in error.lower()
         ):
 
-            return {
-                "error": True,
-                "message":
-                    "Gemini quota exceeded. "
-                    "Please try again later.",
-                "category": "Other",
-                "severity": "Medium",
-                "priority": "Medium",
-                "confidence": 0,
-                "description":
-                    "Vision analysis unavailable.",
-            }
+            return vision_error_response(
+                "Gemini quota exceeded. Please try again later.",
+                "Vision analysis is temporarily unavailable.",
+            )
+
 
         # ----------------------------------------------------
-        # Generic error
+        # GENERIC ERROR
         # ----------------------------------------------------
 
-        return {
-            "error": True,
-            "message": error,
-            "category": "Other",
-            "severity": "Medium",
-            "priority": "Medium",
-            "confidence": 0,
-            "description":
-                "Failed to analyze image.",
-        }
+        return vision_error_response(
+            "Vision analysis failed.",
+            "The image could not be analyzed at this time.",
+        )
